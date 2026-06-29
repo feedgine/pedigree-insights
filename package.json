@@ -7,14 +7,17 @@
   "private": true,
   "main": "out/main/index.js",
   "scripts": {
+    "predev": "electron-builder install-app-deps",
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "dist": "electron-vite build && electron-builder --mac --arm64",
     "postinstall": "electron-builder install-app-deps",
     "typecheck": "tsc --noEmit -p tsconfig.json",
+    "pretest": "npm rebuild better-sqlite3",
     "test": "vitest run",
     "test:unit": "vitest run tests/unit",
+    "pretest:integration": "npm rebuild better-sqlite3",
     "test:integration": "vitest run tests/integration",
     "test:watch": "vitest"
   },
