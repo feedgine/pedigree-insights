@@ -1,0 +1,18 @@
+node_modules/
+out/
+release/
+dist/
+*.log
+.DS_Store
+.vite/
+coverage/
+
+# Local user data / sample databases are not source.
+# The sample DBs used for schema confirmation stay local, not committed.
+*.db
+!tests/fixtures/*.db
+
+# Private AI/dev guidance — kept at repo root so Claude Code auto-loads it locally,
+# but never published. (If already tracked: git rm --cached CLAUDE.md)
+CLAUDE.md
+electron.vite.config.*.mjs

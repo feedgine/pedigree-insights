@@ -1,0 +1,525 @@
+:root {
+  --bg: #f5f6f8;
+  --panel: #ffffff;
+  --border: #d8dde3;
+  --text: #1f2730;
+  --muted: #6b7682;
+  --accent: #2f6fed;
+  --male: #cfe2ff;
+  --male-border: #4d8bf0;
+  --female: #ffd6e3;
+  --female-border: #f06ea0;
+  --subject: #ffffff;
+  --subject-border: #2f6fed;
+  --unknown: #eef1f4;
+}
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: var(--text);
+  background: var(--bg);
+}
+
+.app { display: flex; flex-direction: column; height: 100%; }
+
+/* ---- First run ---- */
+.firstrun { display: grid; place-items: center; height: 100%; }
+.firstrun__card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 48px 56px;
+  text-align: center;
+  max-width: 440px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
+}
+.firstrun__logo { font-size: 44px; }
+.firstrun h1 { margin: 8px 0 4px; font-size: 24px; }
+.firstrun__sub { color: var(--muted); margin: 0 0 24px; }
+.firstrun__note { color: var(--muted); font-size: 13px; margin-top: 20px; }
+.firstrun__error { color: #c0392b; font-size: 13px; margin-top: 12px; }
+
+/* ---- Buttons ---- */
+.btn {
+  font: inherit;
+  border-radius: 8px;
+  padding: 10px 18px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  cursor: pointer;
+}
+.btn:disabled { opacity: 0.6; cursor: default; }
+.btn--primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.btn--ghost { padding: 6px 12px; }
+
+/* ---- Top bar / toolbar ---- */
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 16px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+.topbar__brand { font-weight: 700; }
+.topbar__db { color: var(--muted); font-size: 13px; margin-right: auto; }
+.pill {
+  background: #eef3ff;
+  color: var(--accent);
+  border-radius: 10px;
+  padding: 1px 8px;
+  font-size: 11px;
+  margin-left: 4px;
+}
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 10px 16px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+/* Transient export notice (e.g. PNG resolution clamped). Click to dismiss. */
+.toolbar__note {
+  max-width: 360px;
+  font-size: 12px;
+  line-height: 1.3;
+  color: #8a5a00;
+  background: #fff7e6;
+  border: 1px solid #f0d9a8;
+  border-radius: 6px;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+/* Save… dropdown (format picker) */
+.savemenu { position: relative; }
+.savemenu__list {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 20;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  min-width: 200px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.14);
+}
+.savemenu__item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  width: 100%;
+  padding: 7px 10px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.savemenu__item:hover { background: var(--border); }
+.savemenu__label { font-size: 14px; color: #16181b; }
+.savemenu__hint { font-size: 11px; color: var(--muted); }
+
+.depth { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.depth select { font: inherit; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border); }
+.depth__range { color: var(--muted); font-size: 12px; }
+
+/* ---- Search ---- */
+.search { position: relative; flex: 1; max-width: 460px; }
+.search__input {
+  width: 100%;
+  font: inherit;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.search__results {
+  position: absolute;
+  z-index: 20;
+  top: 110%;
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  max-height: 320px;
+  overflow: auto;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+}
+.search__hint { padding: 8px 10px; color: var(--muted); font-size: 13px; }
+.search__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  font: inherit;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.search__row:hover { background: #f1f5ff; }
+.search__name { font-weight: 600; }
+.search__meta { color: var(--muted); font-size: 12px; margin-left: auto; }
+.badge { border-radius: 6px; padding: 0 6px; font-size: 11px; font-weight: 700; }
+.badge--M { background: var(--male); color: #1c4f9c; }
+.badge--F { background: var(--female); color: #a8366a; }
+.badge--U { background: var(--unknown); color: var(--muted); }
+
+/* ---- Stage / chart ---- */
+.stage { flex: 1; min-height: 0; }
+.empty-stage { display: grid; place-items: center; height: 100%; color: var(--muted); }
+.chart { width: 100%; height: 100%; }
+
+/* ---- Compact bracket-grid pedigree table (monochrome) ---- */
+.pttable {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  background: #fff;
+  padding: 12px;
+}
+
+/* ---- Subject header (certificate-style, above the ancestor grid) ---- */
+.ptsubject {
+  border: 1px solid #c4c9d0;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+  background: #fafbfc;
+}
+.ptsubject__head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.ptsubject__label { color: var(--muted); font-style: italic; font-size: 14px; }
+.ptsubject__name { font-size: 22px; font-weight: 800; color: #16181b; }
+.ptsubject__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 24px;
+  margin-top: 8px;
+  font-size: 13px;
+  color: #2b333c;
+}
+.ptsubject__k { color: var(--muted); }
+
+/* ---- Generation column headers (Parents / Grandparents / …) ---- */
+.ptgrid { width: max-content; }
+.ptgenhead {
+  display: grid;
+  width: max-content;
+  border-left: 1px solid #c4c9d0;
+}
+.ptgenhead__cell {
+  border-top: 1px solid #c4c9d0;
+  border-right: 1px solid #c4c9d0;
+  background: #eef1f5;
+  padding: 6px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: #414852;
+  text-align: center;
+}
+.pttable__grid {
+  /* avoid double borders: cells draw top + right, container draws left + bottom */
+  border-left: 1px solid #c4c9d0;
+  border-bottom: 1px solid #c4c9d0;
+  width: max-content;
+}
+.ptcell {
+  border-top: 1px solid #c4c9d0;
+  border-right: 1px solid #c4c9d0;
+  background: #fff;
+  color: #16181b;
+  padding: 3px 7px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+.ptcell--subject {
+  background: #f3f4f6;
+  font-weight: 600;
+}
+.ptcell--empty {
+  background: #fcfcfd;
+  align-items: center;
+  justify-content: center;
+}
+.ptcell--filler {
+  background: #fcfcfd;
+}
+/* Repeated ancestor (line-bred): tint is set inline per line family; a faint
+   inset edge reinforces the grouping. */
+.ptcell--lined { box-shadow: inset 2px 0 0 rgba(0, 0, 0, 0.08); }
+.ptcell__unknown { color: #b3b9c2; font-size: 12px; }
+/* The registered name — prominent, always on its own line, always legible. */
+.ptcell__main {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #16181b;
+  line-height: 1.22;
+  overflow-wrap: anywhere;
+}
+/* Championship titles — smaller and muted, on their own line above the name. */
+.ptcell__titles {
+  display: block;
+  font-size: 9.5px;
+  font-weight: 600;
+  color: #7a828c;
+  line-height: 1.25;
+  letter-spacing: 0.1px;
+  overflow-wrap: anywhere;
+}
+/* Post-name titles sit inline right after the name. */
+.ptcell__titles--post { display: inline; }
+/* Secondary info (reg / DOB / COI·AVK) — small, and wraps to extra lines when a
+   dog has several registration numbers (no truncation). */
+.ptcell__meta {
+  font-size: 10px;
+  color: #5c636d;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+.ptcell__repeat { color: #6b7682; font-weight: 400; }
+
+/* Print caption: hidden on screen, shown only when printing / saving to PDF. */
+.pttable__caption { display: none; }
+
+/* PNG capture: briefly expand the scroll container to its full content size so
+   html-to-image rasterizes the whole bracket, not just the on-screen viewport. */
+.pttable--capturing {
+  width: max-content !important;
+  height: auto !important;
+  overflow: visible !important;
+  padding: 12px !important;
+}
+
+/* ---- Print / Save-as-PDF ---- */
+@media print {
+  /* Page size + margins are set by the main process (printToPDF: A4, landscape
+     for charts, ~8mm margins), so the @page margin is 0 here to avoid doubling.
+     The fit-to-width scale in App.tsx assumes that same 8mm printable area. */
+  @page { margin: 0; }
+
+  /* Strip app chrome so only the pedigree prints. */
+  .topbar, .toolbar, .empty-stage { display: none !important; }
+
+  /* Let the full grid lay out instead of being clipped by scroll containers. */
+  html, body, #root, .app, .stage {
+    height: auto !important;
+    overflow: visible !important;
+  }
+  .pttable {
+    height: auto !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    /* Shrink the whole bracket chart to fit one A4 page. `--print-scale` is set
+       just before printing (App.tsx); defaults to 1 so nothing shrinks if unset.
+       `zoom` reflows layout (Chromium/Electron), so page-break detection stays
+       correct — unlike `transform: scale`, which leaves phantom blank pages. */
+    zoom: var(--print-scale, 1);
+  }
+
+  .pttable__caption {
+    display: flex !important;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 12px;
+    margin-bottom: 8px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid #16181b;
+  }
+  .pttable__caption span { color: #5c636d; }
+
+  /* Preserve cell fills and borders in the printout. */
+  .pttable__grid, .ptcell, .ptcell--subject, .ptcell--empty {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  /* Avoid slicing a cell across a page break where possible. */
+  .ptcell { break-inside: avoid; }
+}
+
+/* ---- View tabs (Pedigree / Linebreeding) ---- */
+.viewtabs {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.viewtab {
+  font: inherit;
+  font-size: 14px;
+  padding: 6px 14px;
+  border: none;
+  background: var(--panel);
+  cursor: pointer;
+  color: var(--muted);
+}
+.viewtab + .viewtab { border-left: 1px solid var(--border); }
+.viewtab--active { background: var(--accent); color: #fff; }
+
+/* ---- Linebreeding report ---- */
+.lb {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  background: #fff;
+  padding: 16px 20px;
+}
+.lb__head strong { font-size: 15px; }
+.lb__warn { color: #c0392b; font-size: 13px; }
+.lb__stats {
+  margin: 8px 0 6px;
+  padding-left: 18px;
+  color: #3b424c;
+  font-size: 13px;
+}
+.lb__stats li { margin: 2px 0; }
+.lb__note {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 12px;
+  max-width: 760px;
+}
+.lb__cycle-warn {
+  margin: 8px 0 12px;
+  padding: 8px 12px;
+  border: 1px solid #e0b000;
+  background: #fff8e1;
+  border-radius: 6px;
+  color: #7a5b00;
+  font-size: 12px;
+  max-width: 760px;
+}
+.lb__cycle-list {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+.lb__cycle-list li { margin: 1px 0; }
+.lb__controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 10px;
+}
+.lb__count { color: var(--muted); font-size: 13px; }
+
+.lb-table {
+  border-collapse: collapse;
+  width: max-content;
+  min-width: 100%;
+  font-size: 13px;
+}
+.lb-table thead th {
+  position: sticky;
+  top: 0;
+  background: #f3f4f6;
+  text-align: left;
+  font-weight: 600;
+  border-bottom: 2px solid #c4c9d0;
+  z-index: 1;
+}
+.lb-cell {
+  border-bottom: 1px solid #e5e8ec;
+  padding: 5px 10px;
+  vertical-align: top;
+}
+.lb-cell--name { font-weight: 600; white-space: nowrap; }
+.lb-cell--stats {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  color: #3b424c;
+  max-width: 520px;
+  line-height: 1.45;
+}
+.lb-cell--num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* Display-only genetics columns (values come from the external script). */
+.lb-cell--gen { color: #5c636d; background: #fbfbfc; }
+thead .lb-cell--gen { font-style: italic; }
+.lb-table tbody tr:hover { background: #f7f9fc; }
+.lb-split { color: var(--muted); }
+
+/* ---- Foundation report ---- */
+.fnd__controls { display: flex; align-items: center; gap: 12px; margin: 8px 0 4px; }
+.fnd__msg {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: #3b424c;
+  background: #eef3ff;
+  border: 1px solid #d6e0ff;
+  border-radius: 6px;
+  padding: 6px 10px;
+  max-width: 760px;
+}
+.fnd__absent { color: var(--muted); }
+.fnd__absent .lb-cell--name { font-weight: 400; }
+.lb-star { color: var(--accent); font-weight: 700; }
+.lb-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 7px;
+  vertical-align: middle;
+}
+.lb-sex--M { background: var(--male-border); }
+.lb-sex--F { background: var(--female-border); }
+.lb-sex--U { background: #b3b9c2; }
+
+@media print {
+  .viewtabs, .lb__controls { display: none !important; }
+  .lb { height: auto !important; overflow: visible !important; padding: 0 !important; }
+  .lb-table thead th { position: static; }
+}
+
+/* ---- Animal cards (legacy react-flow node; retained, unused by table view) ---- */
+.card {
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  width: 100%;
+  height: 100%;
+  padding: 6px 8px;
+  font-size: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  position: relative;
+}
+.card--subject { border-color: var(--subject-border); border-width: 2px; }
+.card--male { background: var(--male); border-color: var(--male-border); }
+.card--female { background: var(--female); border-color: var(--female-border); }
+.card--unknown { background: var(--unknown); }
+.card--empty {
+  background: repeating-linear-gradient(45deg, #f4f6f8, #f4f6f8 6px, #eef1f4 6px, #eef1f4 12px);
+  border-style: dashed;
+  align-items: center;
+}
+.card__name { font-weight: 600; line-height: 1.15; }
+.card__reg, .card__color { color: var(--muted); font-size: 11px; }
+.card__metrics { margin-top: 2px; font-size: 11px; color: #444; }
+.card__empty-label { color: var(--muted); font-size: 11px; }
+.card__repeat { position: absolute; top: 2px; right: 4px; color: var(--accent); font-size: 12px; }

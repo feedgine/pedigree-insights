@@ -1,0 +1,3 @@
+*.ts text
+*.tsx text
+*.db binary

@@ -1,0 +1,589 @@
+---
+title: PedigreeInsights Product Requirements (PRD)
+type: Product Requirements Document
+version: "1.2"
+status: DRAFT — requires Yuliya's review
+updated: 2026-06-27
+license: MIT
+reference_render: SNOWSHOES BOBBI AT LUELDAR 8G.png; Finnish KC (KoiraNet) certificate layout; Pedigree Online linebreeding report; PedigreePub export output (A4/A3 + PNG)
+companion_docs:
+  - stack-decision.md
+  - schema-map.md
+  - pedigree-algorithm.md
+  - file-structure.md
+  - open-items.md
+changelog:
+  - "2026-06-29 (v1.5) — Doc split: design docs (this PRD + companions) are published in the repo under docs/ (renamed from agent_docs/). CLAUDE.md is kept private (git-ignored at repo root). The Task-to-Handoff Working Change Record (former §0), the compliance gap report, and test-run evidence live in the private dev-docs/pedigree-insights/ outside the repo. PRD restored to a clean product spec."
+  - "2026-06-29 (v1.4) — Conformed to the Setronica Task-to-Handoff standard via a Working Change Record + gap report (now kept in dev-docs/pedigree-insights/; see working-change-record.md and task-to-handoff-compliance.md). Honest handoff status: NOT ready pending owner review + remote/CI."
+  - "2026-06-14 — DB location: config-file-path → file picker on first launch, path saved to config (§6.1, §7.4)"
+  - "2026-06-14 — COI: fully out-of-scope → externally computed, displayed read-only if available (§4, §7.3, §9)"
+  - "2026-06-14 — Stack: Tauri default → Electron + better-sqlite3 confirmed (§8)"
+  - "2026-06-14 — Engineering blockers resolved via DogSampleData.db inspection — schema [DOCUMENTED] (§8, §10)"
+  - "2026-06-14 — Added §12 Automated testing strategy (unit / integration / end-to-end)"
+  - "2026-06-14 (v0.5) — Visual layout captured from reference render SNOWSHOES BOBBI AT LUELDAR 8G.png"
+  - "2026-06-25 (v1.0) — Forked PedigreePoint → PedigreeInsights for GitHub packaging (kept original in ../pedigree-point)"
+  - "2026-06-25 (v1.1) — Scope expanded from single viewer to FOUR report tabs: Pedigree, PedigreeTree, Linebreeding, Foundation (§5, §6)"
+  - "2026-06-25 (v1.1) — Bracket chart redesigned: subject lifted into a certificate-style header; generation column headers; cells grow to fit (no truncation); titles small/name prominent; repeated ancestors fully drawn; monochrome (§6.3)"
+  - "2026-06-25 (v1.1) — Depths: Pedigree/PedigreeTree 4–8; Linebreeding 4–20; Foundation all generations (§7.2)"
+  - "2026-06-25 (v1.1) — COI/AVK column name varies by BreedMate export (Inbreeding Coefficient/Relationship Coefficient vs COI/AVK); detected at connect time (§8, schema-map.md)"
+  - "2026-06-25 (v1.1) — Genetics policy refined: per-dog COI stays external/display-only; CONTRIBUTION % (Wright's ½^gen) is computed in-app for Foundation/Linebreeding, labelled a computed estimate (§7.3)"
+  - "2026-06-27 (v1.2) — Export reworked into a single **Save…** menu (extensible format picker) replacing the Print/PDF button. PDF is now rendered by the Electron MAIN process (printToPDF), because macOS ignores the CSS @page orientation under window.print(); charts export A4/A3 LANDSCAPE with the WHOLE bracket fit onto ONE page (A3 chosen when A4 would be unreadably small). New **PNG** export rasterizes the entire chart as one image with no page limit. Text reports export A4 portrait. (§5, §6.7, §8, §11)"
+  - "2026-06-27 (v1.2) — Export approach benchmarked against the external **PedigreePub** tool (its A3-when-too-wide + save-as-PNG workarounds); PNG pixel-ratio is clamped to the browser canvas limit with a user notice (§6.7)"
+  - "2026-06-27 (v1.3) — Linebreeding report completed to PedigreeOnline parity: **Blood %** (Wright's ½^gen contribution) and **Influence** (equivalent cross pair) are now COMPUTED in-app (structural estimates); rows RANKED by Blood % to surface top influencers; unique-ancestor denominator corrected to 2^(g+1)−2 (§6.4)"
+  - "2026-06-27 (v1.3) — Genetics policy REVERSED: COI/AGR/AVK are now COMPUTED IN-APP by a validated module (src/lib/genetics.ts), not an external script — the stored BreedMate COI proved unreliable. COI = Meuwissen & Luo (1992); AGR = Colleau (2002) indirect; AVK = ancestor-loss with BigInt denominator. Validated to machine precision vs the exact tabular method + hand pedigrees. Owner-approved 2026-06-27 (§4, §5, §7.3, §9)"
+  - "2026-06-27 (v1.3) — Pedigree CYCLES (a dog within its own ancestry; 19 found in the sample DB) are detected, broken for the math, and surfaced as a non-blocking warning listing offending dogs (break-and-warn, owner-confirmed default) (§6.4, §6.6)"
+  - "2026-06-27 (v1.3) — Repositioned as a SOURCE-AGNOSTIC pedigree-database analysis tool: documented the minimal Source database contract (mandatory table `Pedigree` + `Name`/`Sire`/`Dam`; the rest optional). BreedMate remains the primary tested format (§1, §8)"
+  - "2026-06-27 (v1.3) — Genetics use clarified per report: Linebreeding & Foundation always RECOMPUTE and IGNORE stored COI/AVK/AGR; Pedigree & PedigreeTree DISPLAY stored COI/AVK verbatim (no recompute) (§5, §7.3)"
+  - "2026-06-27 (v1.2) — UI: the 'Change…' database button renamed **'Open DB'** (§6.1)"
+  - "2026-06-27 (v1.2) — Hardening: **runtime validation** added at the IPC boundary in the main process (types vanish at runtime); **timing instrumentation** wraps the heavy reports to profile real durations before any worker-process isolation is considered (§8, §9)"
+  - "2026-06-27 (v1.2) — Refactor: export logic extracted into dedicated modules (src/lib/chartExport.ts, electron/main/export.ts, electron/main/validate.ts, components/SaveMenu.tsx); new dependency html-to-image (§8, file-structure.md)"
+tags:
+  - pedigree-insights
+  - prd
+---
+
+# PedigreeInsights — Product Requirements (PRD)
+
+This is the product-level specification for PedigreeInsights. It defines *what*
+the product is, *who* it serves, and *what it must do*. Engineering detail (exact
+schema, framework internals, traversal code) lives in the companion docs above.
+
+PedigreeInsights was forked from the original **PedigreePoint** viewer on
+2026-06-25 and is the package intended for GitHub. The original remains intact in
+the sibling `pedigree-point/` folder.
+
+---
+
+## 1. Summary
+
+PedigreeInsights is a free, **open-source (MIT-licensed)** macOS desktop
+**pedigree-database analysis tool**. It is **source-agnostic**: it reads any
+SQLite database that exposes a pedigree table in the expected shape (see §8
+"Source database contract"). **BreedMate** exports are the primary, fully-tested
+format, so a breeder can analyse the data they already hold in BreedMate; any
+other tool's SQLite export that matches the contract works equally well.
+
+It began as an interactive pedigree-chart viewer and has grown into a small
+**analysis tool with four report tabs**:
+
+1. **Pedigree** — a bracket pedigree chart (titles · name · DOB · reg).
+2. **PedigreeTree** — the same bracket chart focused on inbreeding metrics
+   (name · COI · AVK).
+3. **Linebreeding** — every ancestor that appears more than once across the sire
+   and dam sides, with the generation/line of each cross, plus Blood %, Influence,
+   AGR and COI; ranked by Blood % to surface the top influencers.
+4. **Foundation** — import a list of foundation dogs and see, for any chosen dog,
+   each foundation's presence and genetic contribution across all generations.
+
+The app remains a **read-only** consumer of the `.db`. BreedMate (on Windows)
+stays the source of truth for all data entry and editing; PedigreeInsights never
+modifies the file.
+
+---
+
+## 2. Problem & motivation
+
+BreedMate runs on **Windows only**. A breeder who works on a Mac but whose
+pedigree data lives in a BreedMate `.db` has no native way to view or analyse
+that data — they must keep Windows hardware (or a VM) purely to run one program.
+That is an expensive, awkward barrier for what is, at heart, *reading* an
+existing SQLite file.
+
+PedigreeInsights removes that barrier and goes further: beyond simply rendering a
+pedigree, it answers the questions a breeder actually asks of a pedigree — *where
+does the line-breeding sit, and how much of which foundation dogs is behind this
+animal?* — directly from the data BreedMate already holds, with no Windows
+machine required. Being MIT-licensed, the wider breeder community can use,
+inspect, and extend it freely.
+
+---
+
+## 3. Target user
+
+The primary user is the breeder/kennel owner who maintains a BreedMate database
+on a Mac and wants a better way to view and *study* pedigrees. This is a
+single-user, single-machine, local tool — no accounts, no server, no cloud sync.
+The user is comfortable installing a Mac app but is not necessarily technical.
+
+---
+
+## 4. Goals & non-goals
+
+### Goals
+
+- Give Mac breeders native access to existing BreedMate data without Windows.
+- Render a clear, readable pedigree chart (two layouts) for any selected animal.
+- Surface line-breeding (repeated ancestors and their crosses) at a glance.
+- Quantify foundation-dog presence and contribution across all generations.
+- Read directly from the existing BreedMate `.db` without altering it.
+- Run entirely locally; ship as free, open-source software under the **MIT license**.
+
+### Non-goals
+
+- Editing or writing animal records (read-only — see roadmap §9).
+- Descendant/offspring charts (algorithm scaffold exists; not a deliverable yet).
+- Health-test interpretation, breed-standard scoring, registration compliance.
+- Multi-user, networking, cloud sync, or mobile.
+
+---
+
+## 5. Scope — the four reports
+
+A user opens the app, it connects to their BreedMate `.db`, they look up a dog by
+name, and they switch between four tabs. Looking up a dog by name is the minimum
+supporting capability (matches Name or Registration).
+
+| Tab | Purpose | Depth | Genetics |
+|---|---|---|---|
+| **Pedigree** | Bracket chart: titles · name · DOB · reg | 4–8 gens | none |
+| **PedigreeTree** | Bracket chart: name · COI · AVK | 4–8 gens | **displays STORED** COI/AVK from the DB ("—" if absent); no recompute |
+| **Linebreeding** | Repeated ancestors + crosses | 4–20 gens | Blood %/Influence + COI/AGR/AVK **computed in-app (stored values ignored)**, ranked by Blood % |
+| **Foundation** | Foundation-dog presence + contribution | all generations | contribution % **computed in-app** (stored values ignored) |
+
+Each tab is detailed in §6. A single **Save…** action exports the active report
+(PDF for any view; PNG additionally for the bracket charts) — see §6.7.
+
+---
+
+## 6. User experience requirements
+
+### 6.1 First launch and database connection
+
+On first launch the app prompts the user to **locate the BreedMate `.db` file
+with a native file picker** (§7.4). The chosen path is saved to a config file, so
+subsequent launches open the same file automatically. The file can live anywhere,
+and the user can re-point the app at a different file with the **Open DB** button
+in the header. If the saved file
+is missing on a later launch, the app falls back to the picker rather than
+failing. If the file is not a usable BreedMate pedigree database (its `Pedigree`
+table is missing required columns `Name`/`Sire`/`Dam`), the app shows a clear
+message rather than a raw SQLite error.
+
+### 6.2 Selecting an animal
+
+A single name lookup (matching `Name` or `Registration`, case-insensitively)
+identifies the subject; picking a result drives every tab.
+
+### 6.3 Pedigree & PedigreeTree (the bracket charts)
+
+Both tabs render the subject's ancestors as a **bracket grid**: generations are
+columns (Parents on the left, deepening rightward), each ancestor cell spans the
+rows of its subtree. The two tabs share the layout and differ only in cell
+content.
+
+**Subject header (certificate style).** The subject is **not** a column in the
+grid; it sits in a header block above the table — `Pedigree of: <Name>` with the
+dog's titles, and its DOB, Sex, Breed, Reg No., Color, and COI · AVK (only fields
+that have data). This mirrors a kennel-club pedigree certificate (Finnish KC
+reference) and frees the grid to start at the **Parents** column.
+
+**Generation headers.** A header row labels the columns: `Parents`,
+`Grandparents`, `G Grandparents`, `G G Grandparents`, … one per generation.
+
+**Cell content.**
+- *Pedigree* tab: championship **titles** render small and muted on their own
+  line; the **registered name** always starts on a fresh line in a prominent
+  bold; below it, **Reg No.** and **DOB** in a small font. No COI/AVK.
+- *PedigreeTree* tab: the **name** only (no titles), with **COI · AVK** beneath.
+
+**Legibility (a hard requirement).** Title strings in this breed are long
+(`C.I.B. FI CH SE CH … BALTW-00 …`). Cells therefore **grow vertically to fit
+their content** — names, titles and multiple registration numbers wrap freely and
+are never truncated (the full label is also a hover tooltip). Column widths are
+fixed (so the bracket stays aligned and print is predictable); rows expand. This
+follows the Finnish-KC approach rather than clipping.
+
+**Repeated ancestors are fully drawn.** A line-bred ancestor that occupies more
+than one box is expanded box-for-box at every occurrence, exactly as a printed
+pedigree shows it (chart "expand-all" mode). The only collapse is a genuine data
+error — a dog listed inside its own ancestry — which is stopped by the per-path
+cycle guard and marked with a small ↺ (see pedigree-algorithm.md).
+
+**Monochrome.** The charts are monochrome (white cells, grey borders, black
+text); sex is not colour-coded here. (Sex is shown as a small dot in the
+Linebreeding/Foundation tables.)
+
+**Depth.** 4 generations by default, adjustable **4–8** (deeper bracket charts
+are not legible; deep analysis lives in the Linebreeding/Foundation reports).
+
+### 6.4 Linebreeding report
+
+Lists every ancestor that appears **more than once** across the sire and dam
+sides of the subject, modelled on the Pedigree Online linebreeding report.
+
+- **Depth 4–20 generations** (selector). Per-path enumeration of crosses stays
+  fast and meaningful to ~20 generations; beyond that the cross count explodes
+  (measured on the 37k-dog database) and the converging **contribution** view in
+  Foundation is the right tool — see open-items.md #13.
+- **Min crosses** filter (default 2 — the "inbreds" filter).
+- **Columns:** Name · Crosses (the cross list, e.g. `3S x 1S`, where the letter
+  is the subject side S/D and the case encodes the ancestor's sex) · # (count) ·
+  Lines (count split `(sire)(dam)`) · **Blood %** · **Influence** · **AGR** · **COI**.
+  Rows are **ranked by Blood %** (genetic contribution) — the "top influencers"
+  ordering, matching Pedigree Online.
+- **Header:** the subject's COI, AVK and the count/percentage of unique ancestors
+  in N generations. The unique-ancestor denominator is the true ancestor-slot
+  count 2^(g+1)−2 (an earlier 2^g−1 under-counted by ~half).
+- **Genetics (all computed in-app, labelled estimates):**
+  - **Blood %** = Wright's Σ ½^generation contribution — *structural*, deterministic.
+  - **Influence** = the equivalent cross pair (n×n / n×(n+1), or `< 7x7`) that
+    represents the Blood % contribution. Reverse-engineered from and verified
+    against the Pedigree Online reference report (all 46 rows reproduce).
+  - **AGR** = additive genetic relationship subject↔ancestor — Colleau's indirect
+    method (src/lib/genetics.ts).
+  - **COI** = each ancestor's own inbreeding — Meuwissen & Luo (src/lib/genetics.ts).
+- **Cycle warning:** if any ancestor appears within its own ancestry (a data
+  error), a non-blocking banner lists the offending dogs; the edge is broken so
+  COI/AGR still compute (break-and-warn — §6.6).
+
+### 6.5 Foundation report
+
+Quantifies how much of an imported list of **foundation dogs** stands behind a
+chosen subject, across **all generations**.
+
+- **Import:** the user loads a `.txt`/`.csv` list (one name per line, or the
+  first CSV column). The app parses, de-duplicates, validates names against the
+  database, and reports how many matched. The list is saved to config.
+- **Per foundation dog:** In DB? · Present in this pedigree? · Closest generation
+  · Crosses (within a depth cap) · **Contribution %**.
+- **Summary:** "X of Y foundation dogs present (Z%)" and a combined contribution
+  (a simple sum, with a caveat that overlapping founders can double-count).
+- **Engine:** a memoized layered DP computes contribution and presence across all
+  generations in milliseconds, regardless of how interbred the dog is (it is
+  bounded by a finite safety cap and is cycle-safe). See §7.3 and contribution.ts.
+
+### 6.6 Robustness for real-world data
+
+BreedMate data can contain entry errors, including circular ancestry. No view may
+hang or crash on such data. Every traversal is **depth-limited AND loop-guarded**
+(per-path for the chart/contribution walks, global de-dup for ancestor counts);
+the genetics engine is **iterative and visited-bounded**. This is a hard product
+requirement, not just an implementation detail.
+
+**Cycle handling (break-and-warn — owner-confirmed default).** The genetics step
+explicitly **detects** pedigree cycles (a dog within its own ancestry; 19 exist in
+the sample DB, incl. dogs listed as their own parent), **breaks** the offending
+edge so the COI/AGR math stays a valid DAG, and **surfaces a warning** naming the
+offending dogs so the data can be corrected — it never silently loops or hides the
+issue. Break-and-warn is preferred over hard-stop because cycles cluster in popular
+ancestors, so stopping would block reports for many descendants over often-deep,
+negligible errors.
+
+### 6.7 Exporting a report (Save…)
+
+A single **Save…** control in the toolbar opens a small **format menu**. The menu
+is data-driven so further formats can be added without new buttons. Today it
+offers:
+
+- **PDF** — for every view.
+- **PNG** — additionally for the two bracket charts (Pedigree / PedigreeTree).
+
+**PDF — one-page certificate.** Charts export **A4/A3 landscape** with the
+**entire bracket fit onto a single page**. The app measures the rendered chart
+and scales it to fit both the width and height of the sheet; it uses **A4**, and
+**bumps to A3** when A4 would force an unreadably small scale. The result is a
+one-page overview (text is small at 8 generations, but the whole tree is present
+and printable) rather than a tall chart sliced across many pages. Text reports
+(Linebreeding / Foundation) export **A4 portrait** and may run to several pages.
+
+Printing is performed by the **Electron main process** (`printToPDF`), *not* the
+renderer's `window.print()`: on macOS `window.print()` ignores the CSS `@page`
+orientation, which previously forced a wide chart to print portrait and clip. The
+main-process path forces page size and orientation deterministically. The user
+then chooses the destination in a native save dialog.
+
+**PNG — full-resolution, no page limit.** PNG rasterizes the **whole chart as one
+image**, which is the right tool for a deep pedigree whose detail must stay
+legible (the approach the external **PedigreePub** tool uses as its workaround for
+page limits). The pixel ratio is **clamped to the browser canvas limits**
+(≤ 32,000 px per side, ≤ 256 MP) so a very large chart can never silently render
+blank; if the resolution had to be reduced, the toolbar shows a brief notice
+suggesting PDF for a crisp full-size copy.
+
+> Note on layout: the bracket grid uses fixed column widths and content-growing
+> rows, so a full 8-generation chart is intrinsically tall. The PDF therefore
+> trades size for a single page, and PNG covers the "large and legible" case. A
+> future **PedigreePub-style layout repack** (tapering column widths, thin packed
+> deep rows) — see §9 — would let the PDF itself be both one-page and legible.
+
+---
+
+## 7. Confirmed product decisions
+
+### 7.1 Write access — READ-ONLY
+
+The app does not modify the `.db`. The file is opened read-only and a
+`PRAGMA query_only` is set as defence in depth. In-app editing remains a roadmap
+item (§9).
+
+### 7.2 Generation depth — per report
+
+- **Pedigree / PedigreeTree:** default 4, adjustable **4–8**.
+- **Linebreeding:** **4–20** (`LINEBREEDING_MAX_GENERATIONS = 20`).
+- **Foundation:** **all generations**, bounded by a finite safety cap
+  (`CONTRIBUTION_MAX_GENERATIONS = 64`; real lines run out far sooner, the cap
+  only guarantees termination on circular data).
+- The shared ancestor-traversal hard cap is `MAX_GENERATIONS_CAP = 13`. Every
+  request is clamped; recursion is never unbounded (CLAUDE.md).
+
+### 7.3 Genetics policy — COI/AGR/AVK computed in-app (validated), updated 2026-06-27
+
+**History.** Through v1.1 a dog's own COI was kept strictly external (computed by a
+separate script, displayed read-only) because genetics output must be validated.
+In v1.3 this was **reversed** after investigation showed the stored BreedMate COI
+column is unreliable — capped near ~0.4 % (a dog Pedigree Online rates at 28 % was
+stored as 0.30 %). Hiding/displaying a bad value is worse than computing a correct
+one, so — **owner-approved 2026-06-27** — COI/AGR/AVK are now computed in-app by a
+dedicated, validated module (`src/lib/genetics.ts`), as a pre-report step.
+
+Quantities and methods (all labelled *computed estimates*, not externally certified):
+
+- **COI** (Coefficient of Inbreeding) — **Meuwissen & Luo (1992)**, iterative,
+  parents-first; scalable to large populations / deep pedigrees.
+- **AGR** (Additive Genetic Relationship, subject↔ancestor) — **Colleau (2002)**
+  indirect method (A·e_subject in two linear sweeps; no matrix formed).
+- **AVK** (Ancestor-Loss Coefficient) — distinct ÷ possible ancestors, with a
+  **BigInt** denominator (2^(g+1)−2 overflows float64 past generation 52).
+- **Blood %** (Wright's ½^gen contribution) — the separate *structural* estimate,
+  also used by the Foundation report (contribution.ts); distinct from COI/AGR.
+
+**Per-report split (where stored values are used).** The decision to recompute
+applies to the **analytical** reports; the **chart** views still mirror the source
+data verbatim:
+
+- **Linebreeding** and **Foundation** — COI/AGR/AVK and Blood %/contribution are
+  **always computed in-app; any stored `COI`/`AVK`/`AGR` in the database is
+  ignored and recalculated.** These reports never depend on stored genetics.
+- **Pedigree** and **PedigreeTree** bracket charts — display the **stored** `COI`/
+  `AVK` from the database **verbatim** when present ("—" otherwise), with **no
+  recomputation**, so the chart shows exactly what the source file holds. (The
+  charts do not show AGR; it is a pairwise subject↔ancestor figure shown, computed,
+  only in Linebreeding.) Rationale: the bracket charts are a faithful *view* of the
+  source record, while the analytical reports are independent computed analyses.
+
+**Validation requirement (met).** The in-app results are validated to machine
+precision (≤4e-15) against the exact tabular method on the 37k-dog DB **and**
+against hand-computable reference pedigrees with known F (parent-offspring 0.25,
+full-sib 0.25, half-sib 0.125) — see tests/unit/genetics.test.ts. The engine is
+iterative (no deep recursion) and detects/breaks/reports pedigree cycles (§6.6).
+The earlier recursive coancestry engine was replaced: it did not scale and gave
+wrong values (depth-truncated memo → AGR < Blood %).
+
+### 7.4 Database file location — FILE PICKER, PATH SAVED TO CONFIG
+
+On first launch a native file picker selects the `.db`; the chosen path is
+persisted to config and reused on later launches, surviving the file being moved
+(re-pick to update).
+
+---
+
+## 8. Constraints & dependencies
+
+- **License:** MIT — free to use, inspect, and extend. No proprietary BreedMate
+  code is reused; the app only reads the user's own `.db`.
+- **Platform:** local macOS desktop app (Apple Silicon / arm64 MVP target),
+  single user, offline. Exists because BreedMate is Windows-only.
+- **Data source:** any pedigree **SQLite** database that meets the *Source database
+  contract* below (BreedMate `.db` being the primary tested format).
+  PedigreeInsights consumes the file; it does not create it.
+
+- **Source database contract (source-agnostic).** The app depends only on the
+  following; everything else BreedMate-specific is incidental. Enforced via
+  `PRAGMA table_info` at connect time (`queries.ts` `REQUIRED_COLUMNS` /
+  `buildSelectCols`); a missing mandatory column yields a clear error, a missing
+  optional column degrades to NULL.
+
+  *Mandatory:*
+  - a table named **`Pedigree`**;
+  - **`Name`** (TEXT) — the unique identity of each animal;
+  - **`Sire`** and **`Dam`** (TEXT) — each holds the parent's **`Name` string**
+    (NOT an integer FK), matched case-insensitively; an unknown parent is
+    blank/NULL or a name with no matching row (the line ends). Traversal is a
+    self-join on `Name`.
+
+  *Optional (used if present, else "—"):* `Sex`, `DOB`, `Registration` (also used
+  by search), `PreTitle`, `PostTitle`, `Color`, `Breed`, and the stored genetics
+  columns `COI` / `AVK` (or BreedMate's `Inbreeding Coefficient` /
+  `Relationship Coefficient`). Stored genetics are shown only on the bracket
+  charts; the analytical reports recompute and ignore them (§7.3).
+
+  *Not yet generalised (roadmap §9):* the table name `Pedigree` and the column
+  names above are currently fixed; a database using different table/column names
+  or integer parent IDs needs a mapping layer.
+- **Schema variation (confirmed 2026-06-25):** the genetics columns are named
+  `Inbreeding Coefficient` / `Relationship Coefficient` in the bundled sample but
+  `COI` / `AVK` in real exports. The data layer reads `PRAGMA table_info` at
+  connect time and selects whichever names exist (else NULL), so a real database
+  opens correctly without assuming one spelling.
+- **Read-before-build rules (CLAUDE.md):** column names are never assumed;
+  recursion is always depth-limited and loop-guarded; new code is `[DRAFT]` until
+  Yuliya's review.
+- **Stack:** Electron + React + TypeScript; `better-sqlite3` opened **read-only**
+  as the bridge (native module, in the main process only). The bracket charts are
+  rendered with a CSS-grid table (not react-flow) so they stay dense and print
+  predictably. Built with electron-vite; packaged with electron-builder.
+- **Export:** PDF is produced in the main process via `webContents.printToPDF`
+  (deterministic A4/A3 + landscape); PNG via **`html-to-image`** (added
+  dependency) rasterizing the chart DOM. The renderer prepares the page/image
+  (`src/lib/chartExport.ts`) and the main process writes the file
+  (`electron/main/export.ts`); the format menu lives in `components/SaveMenu.tsx`.
+- **IPC hardening:** TypeScript types are compile-time only, so the main process
+  applies **runtime validation** at the IPC boundary (`electron/main/validate.ts`)
+  — rejecting wrong-typed, out-of-range, or oversized payloads before they reach
+  the database or filesystem. This is defensive robustness, not a security claim:
+  the renderer never supplies file paths (those come from main-process dialogs)
+  and the DB is read-only with parameterized queries.
+- **Performance instrumentation:** the heavy reports (`getPedigree`,
+  `getLinebreeding`, `getFoundation`) log their wall-clock duration (`[perf] …`).
+  `better-sqlite3` is synchronous and runs in the main process, so this exists to
+  measure real durations and decide *whether* any report ever needs moving to a
+  worker/UtilityProcess — measurement first, not by default (§9).
+
+---
+
+## 9. Roadmap (not committed)
+
+- **In-app editing** of animal records (read + write).
+- **Richer search & filter** (breed, registration, multi-field).
+- **Animal detail panel** when a node is selected.
+- **Descendant (offspring) charts** — scaffold exists in pedigree-algorithm.md.
+- **Colour-coding of repeated ancestors** in the bracket charts (pastel tints, as
+  on some kennel-club certificates) — easy now that repeats are fully drawn.
+- **Whole-population genetics** (bulk COI/AGR for every dog, not just per-report):
+  the same Meuwissen-Luo/Colleau routines with a sorted ancestor linked list for
+  near-linear scale. *(Per-report COI/AGR/AVK and Blood %/Influence shipped in
+  v1.3 — §6.4/§7.3.)*
+- **Per-cycle impact figure** in the cycle warning (how much breaking each edge
+  moved the subject's COI), to flag high-impact data errors vs negligible ones.
+- **Configurable source mapping** — let the user point the app at a database whose
+  table or columns are named differently (or that uses integer parent IDs), via a
+  small table-name/column-alias mapping, fully generalising the Source database
+  contract (§8) beyond the currently-fixed `Pedigree`/`Name`/`Sire`/`Dam` names.
+- **Photo display** in the subject header (BreedMate `Photo` is a file path,
+  usually to the original Windows machine, so not reliably displayable today).
+- **PedigreePub-style chart repack** — tapering column widths + thin packed deep
+  rows so a deep bracket fits one page *legibly*, letting the PDF be both one-page
+  and readable (today the PDF is one-page-but-small and PNG covers full detail;
+  §6.7).
+- **Architecture (deferred, measure-first):** if reports grow in number, fold the
+  per-report wiring into a single code-defined **report catalogue** + generic
+  execute API (still hardcoded, just centralized once), and add an **export
+  catalogue** distinguishing rendered-document (PDF/PNG) from tabular (CSV/XLSX)
+  outputs. Move a report's DB work to a **UtilityProcess** *only if* the `[perf]`
+  measurements show it blocks the UI (above ~1 s); add a database-adapter
+  abstraction only when a second DB format becomes a real requirement. No plugin
+  framework or DB-stored report metadata is planned.
+
+Delivered since v1.0 of the original viewer: report export (Save… → PDF one-page
+A4/A3 landscape, and full-resolution PNG); the four-tab report set; the Foundation
+contribution engine; runtime IPC validation and performance instrumentation.
+
+---
+
+## 10. Open items affecting this PRD
+
+Resolved product decisions are in §7; engineering items are tracked in
+open-items.md (notably #11 COI/AVK naming, #13 Linebreeding depth, #14
+contribution DP, #15 contribution-vs-COI policy).
+
+- `[DRAFT — verify]` Linebreeding cross-notation case convention (S/s, D/d) and
+  the exact "Influence/closest" formula, against a known reference dog.
+- `[DRAFT — verify]` `[Titles]`/`[Obedience]` → `PreTitle`/`PostTitle` mapping
+  against a real titled dog.
+- `[UNKNOWN — verify]` Whether the app must handle more than one `.db` at once
+  (currently a single configured database).
+
+---
+
+## 11. Acceptance criteria
+
+The product is in good shape when, on the target Mac:
+
+```
+[ ] App launches; first run prompts a file picker, then reopens the saved .db path.
+[ ] A non-BreedMate / column-missing file yields a clear message, not a raw SQLite error.
+[ ] A real export whose genetics columns are named COI/AVK opens and reads correctly.
+[ ] Look up a dog by name; the four tabs all populate for the selection.
+[ ] Pedigree tab: subject in a header block; grid starts at Parents with generation headers.
+[ ] Long titles/names and multiple reg numbers are never clipped (cells grow; tooltip shows full).
+[ ] Repeated ancestors are fully drawn in the chart; a true ancestry loop is stopped (↺), not hung.
+[ ] Pedigree/PedigreeTree depth selectable 4–8; Linebreeding 4–20; Foundation runs to all generations.
+[ ] Linebreeding lists repeated ancestors with crosses/lines; min-crosses filter works.
+[ ] Foundation: importing a list reports matched/unmatched; a chosen dog shows per-founder
+    presence + contribution %, and a "X of Y present" summary.
+[ ] Contribution % is correct (parents = 50%, grandparents = 25%; verified on the real DB).
+[ ] App never writes to the .db (verified read-only); never computes a dog's own COI.
+[ ] App does not hang or crash on circular/duplicate ancestry.
+[ ] Save… → PDF of a chart is a SINGLE landscape page (A4, or A3 for a deep chart),
+    with the whole bracket present and not clipped (verified on the target Mac).
+[ ] Save… → PDF of a text report is A4 portrait and readable.
+[ ] Save… → PNG of a chart is one full-resolution image of the whole tree; an
+    over-large chart triggers the resolution-reduced notice rather than a blank image.
+[ ] The main process rejects malformed IPC payloads (bad reportId/params) without crashing.
+```
+
+---
+
+## 12. Automated testing strategy
+
+Testing pins the spec's hardest guarantees (never write to the `.db`, never hang
+on cycles, ancestor counts and contributions that are correct). Vitest covers the
+unit and integration layers against a read-only fixture derived from
+`DogSampleData.db`; Playwright is the intended end-to-end layer for the packaged
+app.
+
+### 12.1 Unit tests — pure logic, no real DB
+
+Targets: `pedigreeAlgorithm.ts`, `linebreeding.ts`, `contribution.ts`,
+`queries.ts`, layout helpers — exercised against in-memory animal maps.
+
+```
+[ ] Ancestor traversal resolves Sire/Dam by Name and groups by generation.
+[ ] Depth limit and cycle guard (default de-dup mode) terminate and count once.
+[ ] Chart "expand-all" mode fully draws a repeated ancestor at every occurrence,
+    while still halting a true ancestry loop.
+[ ] Linebreeding: common-ancestor crosses, notation, lines split, min-crosses filter,
+    final-generation flag, cycle safety.
+[ ] Contribution DP: parents = 1/2, grandparents = 1/4, repeats sum; converges and
+    terminates on a self-referential pedigree.
+[ ] Foundation report: presence, contribution, closest gen; case-insensitive matching;
+    list parsing (CSV first column, header skip, de-dup).
+[ ] Schema projection: buildSelectCols adapts to long-name vs short-name (COI/AVK)
+    genetics columns, and falls back to NULL when neither exists.
+[ ] Sex normalization, name keying, COI display helper.
+```
+
+### 12.2 Integration tests — real SQLite, real schema
+
+Target: `PedigreeDatabase` / `queries.ts` against the fixture and against tiny
+synthetic databases built per schema shape.
+
+```
+[ ] Opens the fixture read-only; an attempted write throws and the file is byte-identical.
+[ ] getAnimal returns expected rows; ancestor counts are regression-locked to verified figures.
+[ ] Linebreeding unique-ancestor counts match the verified figures at depths 3/5/10.
+[ ] A synthetic SHORT-name (COI/AVK) DB and a LONG-name DB both read genetics correctly;
+    a no-genetics DB degrades to null; a DB missing a required column throws a clear error.
+```
+
+### 12.3 End-to-end (packaged app) — intended
+
+```
+[ ] First launch picker → load → persist path; second launch reuses it.
+[ ] Each tab renders for a selected dog; depth selectors behave per §7.2.
+[ ] Importing a foundation list updates the Foundation report.
+[ ] No hang on a circular pedigree; Print/PDF works.
+```
+
+### 12.4 Status
+
+As of 2026-06-27 the unit + integration layers are implemented and green (71 unit
+tests across the modules above, including `chartExport.test.ts` — the pure
+PDF page-planning and PNG pixel-ratio math — plus the integration suite). The
+end-to-end layer is intended, not yet built.
+
+---
+
+*Status: DRAFT — requires Yuliya's review. Forked from PedigreePoint 2026-06-25.
+Engineering decisions remain governed by the companion docs and the
+non-negotiable rules in CLAUDE.md.*

@@ -1,0 +1,25 @@
+appId: com.pedigreeinsights.app
+productName: PedigreeInsights
+copyright: MIT licensed
+directories:
+  output: release
+  buildResources: build
+files:
+  - out/**/*
+  - package.json
+# better-sqlite3 is a native module: rebuild for Electron's ABI and keep it
+# unpacked from the asar archive so the .node binary is loadable at runtime.
+npmRebuild: true
+asarUnpack:
+  - "**/node_modules/better-sqlite3/**"
+mac:
+  target:
+    - target: dmg
+      arch:
+        - arm64
+  category: public.app-category.utilities
+  # MVP is local + unsigned. Gatekeeper: right-click → Open on first launch,
+  # or `xattr -dr com.apple.quarantine PedigreeInsights.app` to clear quarantine.
+  identity: null
+dmg:
+  artifactName: ${productName}-${version}-arm64.${ext}
