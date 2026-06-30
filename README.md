@@ -114,6 +114,19 @@ Integration tests run against `tests/fixtures/DogSampleData.db`. Place a BreedMa
 
 (See `docs/specification.md` §9 for the full roadmap.)
 
+## Project status & compatibility
+
+This is an actively evolving, personal project. **There are no
+backward-compatibility guarantees.** The app may be reworked or rewritten at any
+time, and its internals, behaviour, on-disk formats (saved config, foundation
+list), and the database contract may change between versions without notice or a
+migration path. Pin a specific commit or release if you need stability.
+
+Forks are welcome under the MIT license — but if you fork or build on this, you
+own and maintain that copy. The author provides the software "as is", with no
+warranty and no responsibility for forks, downstream changes, or any work derived
+from it (see [LICENSE](./LICENSE)).
+
 ## License
 
 MIT — see [LICENSE](./LICENSE).
