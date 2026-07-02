@@ -11,6 +11,7 @@ import { readFileSync } from 'node:fs';
 import { PedigreeDatabase } from './database';
 import { loadConfig, resolveSavedDbPath, saveConfig } from './config';
 import { registerExportIpc } from './export';
+import { applyAppMenu } from './menu';
 import { reqNonEmptyString, reqNumber, optNumber, reqSearchQuery } from './validate';
 import { IPC, type DbStatus, type FoundationImportResult } from '../../src/lib/ipc';
 
@@ -229,6 +230,7 @@ function registerIpc(): void {
 
 app.whenReady().then(() => {
   applyProductionCsp();
+  applyAppMenu();
   registerIpc();
   createWindow();
 

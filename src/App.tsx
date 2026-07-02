@@ -1,23 +1,21 @@
-// App.tsx — top-level renderer state machine. Decides first-run vs. main view,
-// owns the selected animal and the four report tabs. All data comes through
-// window.api (IPC); the renderer never touches the database directly.
+// App.tsx — top-level renderer shell. Owns the connection status, the selected
+// animal, the active tab, the toolbar depth selectors, and export orchestration.
+// Each report tab is a small view component that fetches its own data (via
+// useResource) and reports readiness up, so App carries no per-report loading or
+// data state.
 import React, { useCallback, useEffect, useState } from 'react';
 import type { DbStatus } from '@/lib/ipc';
-import type { PedigreeTreeNode } from '@/lib/pedigreeAlgorithm';
 import {
   DEFAULT_GENERATIONS,
   LINEBREEDING_MAX_GENERATIONS,
 } from '@/lib/pedigreeAlgorithm';
-import type { LinebreedingReport as LbReport } from '@/lib/linebreeding';
-import { DEFAULT_MIN_CROSSES } from '@/lib/linebreeding';
-import type { FoundationReport as FndReport } from '@/lib/contribution';
 import { exportChartPdf, exportChartPng } from '@/lib/chartExport';
 import FirstRun from './components/FirstRun';
 import SaveMenu, { type SaveFormat } from './components/SaveMenu';
 import SearchPanel from './components/SearchPanel';
-import PedigreeTable from './components/PedigreeTable';
-import LinebreedingReport from './components/LinebreedingReport';
-import FoundationReport from './components/FoundationReport';
+import PedigreeView from './components/PedigreeView';
+import LinebreedingView from './components/LinebreedingView';
+import FoundationView from './components/FoundationView';
 
 type View = 'pedigree' | 'tree' | 'linebreeding' | 'foundation';
 
@@ -34,58 +32,43 @@ const CHART_DEPTHS = Array.from(
   { length: CHART_MAX_GENERATIONS - CHART_MIN_GENERATIONS + 1 },
   (_, i) => i + CHART_MIN_GENERATIONS
 ); // 4..8
-
 const clampChart = (n: number) =>
   Math.min(CHART_MAX_GENERATIONS, Math.max(CHART_MIN_GENERATIONS, n));
 const LB_DEPTHS = Array.from({ length: LINEBREEDING_MAX_GENERATIONS - 3 }, (_, i) => i + 4); // 4..20
 
 export default function App(): React.ReactElement {
-  const [status, setStatus] = useState<DbStatus | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [selected, setSelected] = useState<string | null>(null);
+  const [dbStatus, setDbStatus] = useState<DbStatus | null>(null);
+  const [pickingDb, setPickingDb] = useState(false);
+  const [subjectName, setSubjectName] = useState<string | null>(null);
   const [view, setView] = useState<View>('pedigree');
 
-  // Bracket-chart depth (shared by Pedigree + PedigreeTree). Clamped to 4..8.
-  const [generations, setGenerations] = useState(clampChart(DEFAULT_GENERATIONS));
-  const [tree, setTree] = useState<PedigreeTreeNode | null>(null);
-  const [loadingTree, setLoadingTree] = useState(false);
-
-  // Linebreeding.
+  // Toolbar depth selectors. Chart depth is persisted to config; the two chart
+  // tabs share it. Linebreeding depth is session-local.
+  const [chartGenerations, setChartGenerations] = useState(clampChart(DEFAULT_GENERATIONS));
   const [lbGenerations, setLbGenerations] = useState(6);
-  const [minCrosses, setMinCrosses] = useState(DEFAULT_MIN_CROSSES);
-  const [lbReport, setLbReport] = useState<LbReport | null>(null);
-  const [loadingLb, setLoadingLb] = useState(false);
 
-  // Foundation.
-  const [foundationNames, setFoundationNames] = useState<string[]>([]);
-  const [fndReport, setFndReport] = useState<FndReport | null>(null);
-  const [loadingFnd, setLoadingFnd] = useState(false);
-  const [importing, setImporting] = useState(false);
-  const [importMsg, setImportMsg] = useState<string | null>(null);
+  // Whether the active view currently has exportable content (each view reports
+  // this up); drives the Save button's enabled state.
+  const [contentReady, setContentReady] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportMsg, setExportMsg] = useState<string | null>(null);
 
   const isChart = view === 'pedigree' || view === 'tree';
 
-  // On mount: resolve saved path, depth, and foundation list.
   useEffect(() => {
-    window.api.getStatus().then(setStatus);
-    window.api.getConfig().then((c) => {
-      setGenerations(clampChart(c.generations));
-      setFoundationNames(c.foundationNames ?? []);
-    });
+    window.api.getStatus().then(setDbStatus, () => setDbStatus(null));
+    window.api.getConfig().then(
+      (c) => setChartGenerations(clampChart(c.generations)),
+      () => {}
+    );
   }, []);
-
-  // Chart export (PDF / PNG). All the page-fitting and rasterization logic lives
-  // in lib/chartExport; here we only manage the busy flag, file name, and any
-  // notice the export wants to surface (e.g. PNG resolution was clamped).
-  const [exporting, setExporting] = useState(false);
-  const [exportMsg, setExportMsg] = useState<string | null>(null);
 
   const runExport = useCallback(
     async (
       fn: (opts: { defaultName: string }) => Promise<{ warning?: string } | unknown>
     ) => {
-      const defaultName = selected
-        ? `PedigreeInsights-${selected}`
+      const defaultName = subjectName
+        ? `PedigreeInsights-${subjectName}`
         : 'PedigreeInsights';
       setExporting(true);
       setExportMsg(null);
@@ -96,21 +79,20 @@ export default function App(): React.ReactElement {
             ? (res as { warning?: string }).warning
             : undefined;
         if (warning) setExportMsg(warning);
+      } catch (err) {
+        setExportMsg(err instanceof Error ? err.message : String(err));
       } finally {
         setExporting(false);
       }
     },
-    [selected]
+    [subjectName]
   );
 
   const onPrint = useCallback(
     () => runExport((o) => exportChartPdf({ landscape: isChart, ...o })),
     [runExport, isChart]
   );
-  const onSavePng = useCallback(
-    () => runExport((o) => exportChartPng(o)),
-    [runExport]
-  );
+  const onSavePng = useCallback(() => runExport((o) => exportChartPng(o)), [runExport]);
 
   // Output formats for the Save… menu. PDF for every view; PNG only for the
   // bracket charts. Add a format here (e.g. SVG) to expose it in the menu.
@@ -127,117 +109,29 @@ export default function App(): React.ReactElement {
   ];
 
   const pick = useCallback(async () => {
-    setBusy(true);
-    setStatus(await window.api.pickDatabase());
-    setBusy(false);
+    setPickingDb(true);
+    try {
+      setDbStatus(await window.api.pickDatabase());
+    } finally {
+      setPickingDb(false);
+    }
   }, []);
 
-  // Bracket-chart tree — loaded for the two chart tabs.
-  useEffect(() => {
-    if (!selected || !isChart) {
-      setTree(null);
-      return;
-    }
-    let cancelled = false;
-    setLoadingTree(true);
-    window.api.getPedigree(selected, generations).then((t) => {
-      if (!cancelled) {
-        setTree(t);
-        setLoadingTree(false);
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [selected, generations, isChart]);
-
-  // Linebreeding report.
-  useEffect(() => {
-    if (!selected || view !== 'linebreeding') {
-      setLbReport(null);
-      return;
-    }
-    let cancelled = false;
-    setLoadingLb(true);
-    window.api.getLinebreeding(selected, lbGenerations, minCrosses).then((r) => {
-      if (!cancelled) {
-        setLbReport(r);
-        setLoadingLb(false);
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [selected, lbGenerations, minCrosses, view]);
-
-  // Foundation report (re-runs when the subject or the saved list changes).
-  useEffect(() => {
-    if (!selected || view !== 'foundation' || foundationNames.length === 0) {
-      setFndReport(null);
-      return;
-    }
-    let cancelled = false;
-    setLoadingFnd(true);
-    window.api.getFoundation(selected).then((r) => {
-      if (!cancelled) {
-        setFndReport(r);
-        setLoadingFnd(false);
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [selected, view, foundationNames]);
-
   const onChartDepth = useCallback((value: number) => {
-    setGenerations(value);
+    setChartGenerations(value);
     window.api.setGenerations(value);
   }, []);
 
-  const onImportFoundation = useCallback(async () => {
-    setImporting(true);
-    setImportMsg(null);
-    try {
-      const res = await window.api.importFoundation();
-      if (!res.canceled) {
-        setFoundationNames(res.names);
-        const unmatchedNote =
-          res.unmatched.length > 0
-            ? ` ${res.unmatched.length} not found: ${res.unmatched.slice(0, 5).join(', ')}${
-                res.unmatched.length > 5 ? '…' : ''
-              }`
-            : '';
-        setImportMsg(
-          `Loaded ${res.names.length} names — ${res.matched} matched the database.${unmatchedNote}`
-        );
-      }
-    } finally {
-      setImporting(false);
-    }
-  }, []);
-
-  const onClearFoundation = useCallback(async () => {
-    await window.api.clearFoundation();
-    setFoundationNames([]);
-    setFndReport(null);
-    setImportMsg(null);
-  }, []);
-
-  if (!status?.connected) {
-    return <FirstRun onPick={pick} error={status?.error ?? null} busy={busy} />;
+  if (!dbStatus?.connected) {
+    return <FirstRun onPick={pick} error={dbStatus?.error ?? null} busy={pickingDb} />;
   }
-
-  const printDisabled =
-    isChart ? !tree || loadingTree
-    : view === 'linebreeding' ? !lbReport || loadingLb
-    : !fndReport || loadingFnd;
 
   return (
     <div className="app">
       <header className="topbar">
         <span className="topbar__brand">PedigreeInsights</span>
         <span className="topbar__db">
-          DB: {status.fileName} <span className="pill">read-only</span>
+          DB: {dbStatus.fileName} <span className="pill">read-only</span>
         </span>
         <button className="btn btn--ghost" onClick={pick}>
           Open DB
@@ -245,7 +139,7 @@ export default function App(): React.ReactElement {
       </header>
 
       <div className="toolbar">
-        <SearchPanel onSelect={setSelected} />
+        <SearchPanel onSelect={setSubjectName} />
         <div className="viewtabs" role="tablist">
           {TABS.map((t) => (
             <button
@@ -263,7 +157,7 @@ export default function App(): React.ReactElement {
         {isChart && (
           <label className="depth">
             Generations:
-            <select value={generations} onChange={(e) => onChartDepth(Number(e.target.value))}>
+            <select value={chartGenerations} onChange={(e) => onChartDepth(Number(e.target.value))}>
               {CHART_DEPTHS.map((n) => (
                 <option key={n} value={n}>{n}</option>
               ))}
@@ -286,7 +180,7 @@ export default function App(): React.ReactElement {
           <span className="depth depth__range">All generations</span>
         )}
 
-        <SaveMenu formats={saveFormats} disabled={printDisabled} busy={exporting} />
+        <SaveMenu formats={saveFormats} disabled={!contentReady} busy={exporting} />
         {exportMsg && (
           <span className="toolbar__note" role="status" onClick={() => setExportMsg(null)}>
             {exportMsg}
@@ -295,50 +189,32 @@ export default function App(): React.ReactElement {
       </div>
 
       <main className="stage">
-        {!selected && view !== 'foundation' && (
+        {!subjectName && view !== 'foundation' && (
           <div className="empty-stage">
             Look up a dog by name to view its{' '}
             {view === 'linebreeding' ? 'linebreeding report' : 'pedigree'}.
           </div>
         )}
 
-        {selected && view === 'pedigree' && (
-          <>
-            {loadingTree && <div className="empty-stage">Building pedigree…</div>}
-            {tree && !loadingTree && <PedigreeTable tree={tree} variant="pedigree" />}
-          </>
+        {subjectName && isChart && (
+          <PedigreeView
+            subjectName={subjectName}
+            generations={chartGenerations}
+            variant={view === 'tree' ? 'tree' : 'pedigree'}
+            onReady={setContentReady}
+          />
         )}
 
-        {selected && view === 'tree' && (
-          <>
-            {loadingTree && <div className="empty-stage">Building pedigree tree…</div>}
-            {tree && !loadingTree && <PedigreeTable tree={tree} variant="tree" />}
-          </>
-        )}
-
-        {selected && view === 'linebreeding' && (
-          <>
-            {loadingLb && <div className="empty-stage">Analyzing linebreeding…</div>}
-            {lbReport && !loadingLb && (
-              <LinebreedingReport
-                report={lbReport}
-                minCrosses={minCrosses}
-                onMinCrossesChange={setMinCrosses}
-              />
-            )}
-          </>
+        {subjectName && view === 'linebreeding' && (
+          <LinebreedingView
+            subjectName={subjectName}
+            generations={lbGenerations}
+            onReady={setContentReady}
+          />
         )}
 
         {view === 'foundation' && (
-          <FoundationReport
-            report={fndReport}
-            foundationNames={foundationNames}
-            importing={importing}
-            importMsg={importMsg}
-            hasSubject={!!selected}
-            onImport={onImportFoundation}
-            onClear={onClearFoundation}
-          />
+          <FoundationView subjectName={subjectName} onReady={setContentReady} />
         )}
       </main>
     </div>
