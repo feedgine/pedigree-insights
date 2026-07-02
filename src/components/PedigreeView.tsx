@@ -2,7 +2,7 @@
 // tabs, which differ only by `variant`). Fetches its own ancestor tree via
 // useResource and reports readiness up so the toolbar Save button can enable.
 import React, { useEffect } from 'react';
-import { useResource } from '@/lib/useResource';
+import { useResource } from '@/hooks/useResource';
 import PedigreeTable, { type PedigreeVariant } from './PedigreeTable';
 
 interface Props {

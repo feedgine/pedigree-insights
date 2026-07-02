@@ -1,7 +1,7 @@
 // LinebreedingView — the Linebreeding stage. Owns its own min-crosses filter
 // (the selector lives in the report body) and fetches the report via useResource.
 import React, { useEffect, useState } from 'react';
-import { useResource } from '@/lib/useResource';
+import { useResource } from '@/hooks/useResource';
 import { DEFAULT_MIN_CROSSES } from '@/lib/linebreeding';
 import LinebreedingReport from './LinebreedingReport';
 

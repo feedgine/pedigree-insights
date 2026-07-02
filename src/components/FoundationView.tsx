@@ -2,7 +2,7 @@
 // foundation list and the import/clear flow, and fetches the contribution report
 // via useResource (only once a subject is chosen and a list exists).
 import React, { useCallback, useEffect, useState } from 'react';
-import { useResource } from '@/lib/useResource';
+import { useResource } from '@/hooks/useResource';
 import FoundationReport from './FoundationReport';
 
 interface Props {
