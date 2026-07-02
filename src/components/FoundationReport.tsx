@@ -15,6 +15,7 @@ function pct(v: number): string {
 
 export default function FoundationReport({
   report,
+  error,
   foundationNames,
   importing,
   importMsg,
@@ -23,6 +24,7 @@ export default function FoundationReport({
   onClear,
 }: {
   report: Report | null;
+  error?: string | null;
   foundationNames: string[];
   importing: boolean;
   importMsg: string | null;
@@ -63,6 +65,8 @@ export default function FoundationReport({
         </div>
       ) : !hasSubject ? (
         <div className="empty-stage">Look up a dog to see its foundation contributions.</div>
+      ) : error ? (
+        <div className="empty-stage">Could not build the report: {error}</div>
       ) : !report ? (
         <div className="empty-stage">Analyzing…</div>
       ) : !report.found ? (

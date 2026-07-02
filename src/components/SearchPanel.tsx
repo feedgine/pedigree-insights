@@ -50,7 +50,14 @@ export default function SearchPanel({ onSelect }: Props): React.ReactElement {
           )}
           {results.map((a) => (
             <li key={a.name}>
-              <button className="search__row" onClick={() => onSelect(a.name)}>
+              <button
+                className="search__row"
+                onClick={() => {
+                  onSelect(a.name);
+                  setQuery('');
+                  setResults([]);
+                }}
+              >
                 <span className="search__name">{a.name}</span>
                 <span className={`badge badge--${a.sex ?? 'U'}`}>{a.sex ?? '?'}</span>
                 <span className="search__meta">

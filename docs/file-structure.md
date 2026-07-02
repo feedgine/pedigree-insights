@@ -49,6 +49,7 @@ pedigree-insights/
 ├── electron/                         ← main + preload (the ONLY place the DB is opened)
 │   ├── main/
 │   │   ├── index.ts                  ← app lifecycle, window, IPC handlers (validated + timed), CSP
+│   │   ├── menu.ts                   ← custom application menu (Help → repo / issues)
 │   │   ├── database.ts               ← PedigreeDatabase (better-sqlite3, read-only)
 │   │   ├── export.ts                 ← PDF (printToPDF) + PNG file-save IPC handlers
 │   │   ├── validate.ts               ← runtime IPC payload guards (assert/req helpers)
@@ -57,7 +58,7 @@ pedigree-insights/
 │       └── index.ts                  ← typed window.api bridge (contextIsolation on)
 │
 ├── src/                              ← React + TypeScript renderer
-│   ├── App.tsx                       ← top-level state; the four-tab shell
+│   ├── App.tsx                       ← thin shell: status · subject · active tab; delegates each tab to its view
 │   ├── main.tsx · styles.css
 │   ├── components/
 │   │   ├── FirstRun.tsx              ← first-launch / file-picker screen
@@ -65,9 +66,14 @@ pedigree-insights/
 │   │   ├── PedigreeTable.tsx         ← bracket chart (Pedigree & PedigreeTree variants)
 │   │   ├── LinebreedingReport.tsx    ← repeated-ancestor crosses table
 │   │   ├── FoundationReport.tsx      ← foundation import + contribution table
+│   │   ├── PedigreeView.tsx          ← chart tab: fetches tree (useResource) → PedigreeTable
+│   │   ├── LinebreedingView.tsx      ← linebreeding tab: fetches report; owns min-crosses
+│   │   ├── FoundationView.tsx        ← foundation tab: import flow + fetches contribution
 │   │   ├── SaveMenu.tsx              ← "Save…" dropdown; data-driven export-format picker
 │   │   ├── PedigreeChart.tsx         ← legacy react-flow node (retained, unused by table view)
 │   │   └── AnimalCard.tsx            ← legacy react-flow card (retained, unused)
+│   ├── hooks/
+│   │   └── useResource.ts           ← async fetch hook: loading/error + cancelled-guard
 │   └── lib/                          ← pure, DB-agnostic logic (also runs in unit tests)
 │       ├── schema.ts                 ← Animal interface + normalizers (sex, keys, nodeLabel)
 │       ├── queries.ts                ← every SQL string + schema-adaptive projection
@@ -105,6 +111,11 @@ pedigree-insights/
 - **The renderer never touches the database.** It calls `window.api` (preload),
   which forwards to the main-process IPC handlers; only `electron/main/database.ts`
   opens better-sqlite3 (read-only).
+- **Each report tab is a view component** (`PedigreeView` / `LinebreedingView` /
+  `FoundationView`) that fetches its own data via the `useResource` hook and
+  reports readiness up; `App` is a thin shell (status, subject, active tab,
+  toolbar params, export). The hook lives in `src/hooks/`, not `src/lib/`, so
+  `lib/` stays pure and main-process-safe.
 - **Export is split renderer/main:** `src/lib/chartExport.ts` measures the chart
   and prepares the page/image (one-page A4/A3 PDF plan; PNG capture with a
   canvas-safe pixel ratio); `electron/main/export.ts` writes the file. The
