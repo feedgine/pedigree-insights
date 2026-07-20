@@ -16,6 +16,7 @@ PedigreeInsights is **read-only**. The source database remains the source of tru
 - Generation depth: **Pedigree** bracket chart 4–8; **Indented Tree** 5 / 10 / 20; **Linebreeding** 4–20; **Foundation** runs across all generations.
 - **Export** any report with **Save…**: a single-page **PDF** (A4, or A3 landscape for a deep chart); for the bracket chart, a full-resolution **PNG** of the whole tree with no page limit; for the Indented Tree, a plain-text **.txt** file.
 - Robust on imperfect data: traversal is iterative/cycle-guarded and never hangs; pedigree **cycles** (a dog within its own ancestry) are detected, broken for the math, and **surfaced as a warning** listing the offending dogs so the data can be corrected.
+- The running **version** is shown in the app header (e.g. `v1.3.0`), read from `package.json` at build time.
 - Read-only: BreedMate stays the source of truth; the `.db` is never modified.
 
 ## Database requirements
@@ -44,7 +45,7 @@ The two **analytical** reports compute their own validated figures and **ignore 
   - **AGR** (subject ↔ ancestor) — Colleau's (2002) indirect method.
   - **AVK** (ancestor-loss) — distinct ÷ possible ancestors, **BigInt** denominator so 100+ generations never overflow.
   - **Blood %** — Wright's ½^generation contribution (structural).
-- **Pedigree** and **PedigreeTree** charts — display the **stored** `COI` · `AVK` from the database verbatim when present ("—" otherwise), **without recomputation**, so the chart reflects exactly what the source file holds. (AGR is a pairwise subject↔ancestor figure and appears, computed, only in Linebreeding.)
+- **Pedigree** bracket chart — displays the **stored** `COI` · `AVK` from the database verbatim when present ("—" otherwise), **without recomputation**, so the chart reflects exactly what the source file holds. (AGR is a pairwise subject↔ancestor figure and appears, computed, only in Linebreeding.) The **Indented Tree** likewise shows stored values in its header; the two analytical reports below recompute their own.
 
 The compute engine is iterative (no deep recursion), detects/breaks/reports pedigree cycles with a warning, and is validated to machine precision against the exact tabular method plus hand-computable reference pedigrees (parent-offspring 0.25, full-sib 0.25, half-sib 0.125). Computed figures are labelled estimates, not externally certified values.
 
@@ -101,8 +102,9 @@ Integration tests run against `tests/fixtures/DogSampleData.db`. Place a BreedMa
 - `src/lib/tableLayout.ts` — bracket-grid cell placement (rowSpan/col) for the chart table; `lineColors.ts` tints repeated ancestors.
 - `src/lib/indentedTree.ts` — renders a traversal node as the BreedMate-style indented ASCII text pedigree + summary header; the single source of truth for both the on-screen Indented Tree report and the `.txt` export (they can never drift).
 - `src/lib/chartExport.ts` — export orchestration: the one-page PDF plan and the PNG capture (with a canvas-safe pixel ratio).
-- `electron/main/` — the only place the database is opened (read-only): IPC handlers (runtime-validated via `validate.ts`, timed for profiling), the PDF/PNG/TXT file writers (`export.ts`), file picker, and config persistence.
+- `electron/main/` — the only place the database is opened (read-only): IPC handlers (runtime-validated via `validate.ts`, timed for profiling), the PDF/PNG/TXT file writers (`export.ts`), the custom application menu (`menu.ts`), file picker, and config persistence.
 - `electron/preload/` — narrow, typed `window.api` bridge (contextIsolation on).
+- `src/App.tsx` is a **thin shell** (connection status, selected animal, active tab, toolbar depth selectors, export). Each report tab is a **self-contained view component** — `PedigreeView` · `IndentedTreeView` · `LinebreedingView` · `FoundationView` — that fetches its own data through the `src/hooks/useResource.ts` hook (loading/error + cancelled-guard) and reports readiness up. Adding a report is roughly one new `*View.tsx`, one `TABS` entry, and one render line; the hook lives in `src/hooks/` so `src/lib/` stays pure and main-process-safe.
 
 `Sire`/`Dam` in BreedMate are **Name text strings**, not integer foreign keys, so traversal is a self-join on `Name`. See `docs/` for the confirmed schema map, stack decisions, and algorithm notes.
 
