@@ -49,6 +49,7 @@ pedigree-insights/
 ├── electron/                         ← main + preload (the ONLY place the DB is opened)
 │   ├── main/
 │   │   ├── index.ts                  ← app lifecycle, window, IPC handlers (validated + timed), CSP
+│   │   ├── menu.ts                   ← custom application menu (Help → repo / issues; keeps clipboard roles)
 │   │   ├── database.ts               ← PedigreeDatabase (better-sqlite3, read-only)
 │   │   ├── export.ts                 ← PDF (printToPDF) + PNG + TXT file-save IPC handlers
 │   │   ├── validate.ts               ← runtime IPC payload guards (assert/req helpers)
@@ -57,18 +58,24 @@ pedigree-insights/
 │       └── index.ts                  ← typed window.api bridge (contextIsolation on)
 │
 ├── src/                              ← React + TypeScript renderer
-│   ├── App.tsx                       ← top-level state; the four-tab shell
+│   ├── App.tsx                       ← thin shell: status · subject · active tab · toolbar · export; delegates each tab to its view
 │   ├── main.tsx · styles.css
 │   ├── components/
 │   │   ├── FirstRun.tsx              ← first-launch / file-picker screen
-│   │   ├── SearchPanel.tsx           ← name/registration lookup
+│   │   ├── SearchPanel.tsx           ← name/registration lookup (clears on select)
+│   │   ├── PedigreeView.tsx          ← Pedigree tab: fetches tree (useResource) → PedigreeTable
+│   │   ├── IndentedTreeView.tsx      ← Indented Tree tab: fetches de-dup tree → buildPedigreeText; lifts text up for TXT export
+│   │   ├── LinebreedingView.tsx      ← Linebreeding tab: fetches report; owns min-crosses
+│   │   ├── FoundationView.tsx        ← Foundation tab: import flow + fetches contribution
 │   │   ├── PedigreeTable.tsx         ← bracket chart (Pedigree tab; 'tree' variant retained, unused)
-│   │   ├── IndentedTree.tsx          ← Indented Tree tab: monospace <pre> of the text pedigree
+│   │   ├── IndentedTree.tsx          ← monospace <pre> of the text pedigree (rendered by IndentedTreeView)
 │   │   ├── LinebreedingReport.tsx    ← repeated-ancestor crosses table
 │   │   ├── FoundationReport.tsx      ← foundation import + contribution table
 │   │   ├── SaveMenu.tsx              ← "Save…" dropdown; data-driven export-format picker
 │   │   ├── PedigreeChart.tsx         ← legacy react-flow node (retained, unused by table view)
 │   │   └── AnimalCard.tsx            ← legacy react-flow card (retained, unused)
+│   ├── hooks/
+│   │   └── useResource.ts           ← async fetch hook: loading/error + cancelled-guard
 │   └── lib/                          ← pure, DB-agnostic logic (also runs in unit tests)
 │       ├── schema.ts                 ← Animal interface + normalizers (sex, keys, nodeLabel)
 │       ├── queries.ts                ← every SQL string + schema-adaptive projection
@@ -104,6 +111,12 @@ pedigree-insights/
   traversal/analysis code runs in the Electron main process and in Vitest with an
   in-memory map. `pedigreeAlgorithm.ts`, `linebreeding.ts`, and `contribution.ts`
   are the correctness-critical modules.
+- **Each report tab is a view component** (`PedigreeView` / `IndentedTreeView` /
+  `LinebreedingView` / `FoundationView`) that fetches its own data via the
+  `useResource` hook and reports readiness up; `App` is a thin shell (status,
+  subject, active tab, toolbar depth selectors, export). The hook lives in
+  `src/hooks/`, not `src/lib/`, so `lib/` stays pure and main-process-safe.
+  Adding a report ≈ one new `*View.tsx` + one `TABS` entry + one render line.
 - **The renderer never touches the database.** It calls `window.api` (preload),
   which forwards to the main-process IPC handlers; only `electron/main/database.ts`
   opens better-sqlite3 (read-only).

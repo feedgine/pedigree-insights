@@ -64,6 +64,15 @@ body {
   border-bottom: 1px solid var(--border);
 }
 .topbar__brand { font-weight: 700; }
+.topbar__ver {
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  padding: 1px 6px;
+  border: 1px solid var(--border, #d0d0d0);
+  border-radius: 999px;
+  line-height: 1.5;
+}
 .topbar__db { color: var(--muted); font-size: 13px; margin-right: auto; }
 .pill {
   background: #eef3ff;
