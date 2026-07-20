@@ -1,13 +1,17 @@
 // App.tsx — top-level renderer state machine. Decides first-run vs. main view,
 // owns the selected animal and the four report tabs. All data comes through
 // window.api (IPC); the renderer never touches the database directly.
-import React, { useCallback, useEffect, useState } from 'react';
+//
+// The four tabs are: Pedigree (bracket chart), Indented Tree (BreedMate-style
+// text pedigree, exportable to .txt), Linebreeding, and Foundation.
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import type { DbStatus } from '@/lib/ipc';
 import type { PedigreeTreeNode } from '@/lib/pedigreeAlgorithm';
 import {
   DEFAULT_GENERATIONS,
   LINEBREEDING_MAX_GENERATIONS,
 } from '@/lib/pedigreeAlgorithm';
+import { buildPedigreeText } from '@/lib/indentedTree';
 import type { LinebreedingReport as LbReport } from '@/lib/linebreeding';
 import { DEFAULT_MIN_CROSSES } from '@/lib/linebreeding';
 import type { FoundationReport as FndReport } from '@/lib/contribution';
@@ -16,6 +20,7 @@ import FirstRun from './components/FirstRun';
 import SaveMenu, { type SaveFormat } from './components/SaveMenu';
 import SearchPanel from './components/SearchPanel';
 import PedigreeTable from './components/PedigreeTable';
+import IndentedTree from './components/IndentedTree';
 import LinebreedingReport from './components/LinebreedingReport';
 import FoundationReport from './components/FoundationReport';
 
@@ -23,7 +28,7 @@ type View = 'pedigree' | 'tree' | 'linebreeding' | 'foundation';
 
 const TABS: { id: View; label: string }[] = [
   { id: 'pedigree', label: 'Pedigree' },
-  { id: 'tree', label: 'PedigreeTree' },
+  { id: 'tree', label: 'Indented Tree' },
   { id: 'linebreeding', label: 'Linebreeding' },
   { id: 'foundation', label: 'Foundation' },
 ];
@@ -39,16 +44,26 @@ const clampChart = (n: number) =>
   Math.min(CHART_MAX_GENERATIONS, Math.max(CHART_MIN_GENERATIONS, n));
 const LB_DEPTHS = Array.from({ length: LINEBREEDING_MAX_GENERATIONS - 3 }, (_, i) => i + 4); // 4..20
 
+/** Depths offered for the indented text pedigree (spec: 5 / 10 / 20 gens). */
+const TREE_DEPTHS = [5, 10, 20] as const;
+const DEFAULT_TREE_GENERATIONS = 5;
+
 export default function App(): React.ReactElement {
   const [status, setStatus] = useState<DbStatus | null>(null);
   const [busy, setBusy] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [view, setView] = useState<View>('pedigree');
 
-  // Bracket-chart depth (shared by Pedigree + PedigreeTree). Clamped to 4..8.
+  // Bracket-chart depth (Pedigree tab). Clamped to 4..8.
   const [generations, setGenerations] = useState(clampChart(DEFAULT_GENERATIONS));
   const [tree, setTree] = useState<PedigreeTreeNode | null>(null);
   const [loadingTree, setLoadingTree] = useState(false);
+
+  // Indented text pedigree (Indented Tree tab). Its own depth (5/10/20), and a
+  // separate de-dup traversal built via getPedigreeTree.
+  const [treeGens, setTreeGens] = useState<number>(DEFAULT_TREE_GENERATIONS);
+  const [treeNode, setTreeNode] = useState<PedigreeTreeNode | null>(null);
+  const [loadingIndented, setLoadingIndented] = useState(false);
 
   // Linebreeding.
   const [lbGenerations, setLbGenerations] = useState(6);
@@ -63,7 +78,8 @@ export default function App(): React.ReactElement {
   const [importing, setImporting] = useState(false);
   const [importMsg, setImportMsg] = useState<string | null>(null);
 
-  const isChart = view === 'pedigree' || view === 'tree';
+  // Only the Pedigree tab is a bracket chart now (PNG-capable, landscape PDF).
+  const isChart = view === 'pedigree';
 
   // On mount: resolve saved path, depth, and foundation list.
   useEffect(() => {
@@ -112,17 +128,42 @@ export default function App(): React.ReactElement {
     [runExport]
   );
 
+  // The indented text report — the single source shown on screen AND written to
+  // the .txt file, so the two can never diverge.
+  const treeText = useMemo(
+    () => (treeNode ? buildPedigreeText(treeNode, treeGens) : ''),
+    [treeNode, treeGens]
+  );
+
+  const onSaveTxt = useCallback(async () => {
+    if (!treeNode || !treeText) return;
+    const base = treeNode.animal?.name?.trim() || selected || 'pedigree';
+    setExporting(true);
+    try {
+      await window.api.saveText(`PedigreeInsights - ${base} - ${treeGens}gen`, treeText);
+    } finally {
+      setExporting(false);
+    }
+  }, [treeNode, treeText, treeGens, selected]);
+
   // Output formats for the Save… menu. PDF for every view; PNG only for the
-  // bracket charts. Add a format here (e.g. SVG) to expose it in the menu.
+  // bracket chart; TXT only for the indented text tree.
   const saveFormats: SaveFormat[] = [
     {
       id: 'pdf',
       label: 'PDF',
-      hint: isChart ? 'A4 / A3 · one page' : 'A4 portrait',
+      hint: isChart
+        ? 'A4 / A3 · one page'
+        : view === 'tree'
+          ? 'A4 portrait · text'
+          : 'A4 portrait',
       run: onPrint,
     },
     ...(isChart
       ? [{ id: 'png', label: 'PNG', hint: 'whole chart · one image', run: onSavePng }]
+      : []),
+    ...(view === 'tree'
+      ? [{ id: 'txt', label: 'TXT', hint: 'plain-text indented pedigree', run: onSaveTxt }]
       : []),
   ];
 
@@ -132,7 +173,7 @@ export default function App(): React.ReactElement {
     setBusy(false);
   }, []);
 
-  // Bracket-chart tree — loaded for the two chart tabs.
+  // Bracket-chart tree — loaded for the Pedigree tab only.
   useEffect(() => {
     if (!selected || !isChart) {
       setTree(null);
@@ -150,6 +191,25 @@ export default function App(): React.ReactElement {
       cancelled = true;
     };
   }, [selected, generations, isChart]);
+
+  // Indented text pedigree — loaded for the Indented Tree tab (de-dup, 5/10/20).
+  useEffect(() => {
+    if (!selected || view !== 'tree') {
+      setTreeNode(null);
+      return;
+    }
+    let cancelled = false;
+    setLoadingIndented(true);
+    window.api.getPedigreeTree(selected, treeGens).then((t) => {
+      if (!cancelled) {
+        setTreeNode(t);
+        setLoadingIndented(false);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [selected, treeGens, view]);
 
   // Linebreeding report.
   useEffect(() => {
@@ -229,6 +289,7 @@ export default function App(): React.ReactElement {
 
   const printDisabled =
     isChart ? !tree || loadingTree
+    : view === 'tree' ? !treeNode || loadingIndented
     : view === 'linebreeding' ? !lbReport || loadingLb
     : !fndReport || loadingFnd;
 
@@ -271,6 +332,16 @@ export default function App(): React.ReactElement {
             <span className="depth__range">({CHART_MIN_GENERATIONS}–{CHART_MAX_GENERATIONS})</span>
           </label>
         )}
+        {view === 'tree' && (
+          <label className="depth">
+            Generations:
+            <select value={treeGens} onChange={(e) => setTreeGens(Number(e.target.value))}>
+              {TREE_DEPTHS.map((n) => (
+                <option key={n} value={n}>{n}</option>
+              ))}
+            </select>
+          </label>
+        )}
         {view === 'linebreeding' && (
           <label className="depth">
             Generations:
@@ -311,8 +382,8 @@ export default function App(): React.ReactElement {
 
         {selected && view === 'tree' && (
           <>
-            {loadingTree && <div className="empty-stage">Building pedigree tree…</div>}
-            {tree && !loadingTree && <PedigreeTable tree={tree} variant="tree" />}
+            {loadingIndented && <div className="empty-stage">Building pedigree tree…</div>}
+            {treeNode && !loadingIndented && <IndentedTree text={treeText} />}
           </>
         )}
 

@@ -32,6 +32,12 @@ export const DEFAULT_GENERATIONS = 3;
  *  the per-path cross count explodes — use the Foundation/contribution view). */
 export const LINEBREEDING_MAX_GENERATIONS = 20;
 
+/** The indented text pedigree ("Indented Tree" tab) offers 5 / 10 / 20 gens.
+ *  It uses the DE-DUP traversal (each animal expanded at most once), so even a
+ *  20-generation line-bred tree stays bounded as text — unlike the fully-
+ *  expanded bracket chart, whose box count doubles per generation. */
+export const PEDIGREE_TREE_MAX_GENERATIONS = 20;
+
 /** Hard safety ceiling for the memoized contribution DP ("all generations").
  *  Real pedigrees run out of known ancestors long before this; the cap only
  *  guarantees termination on circular/erroneous data (CLAUDE.md: recursion must
@@ -83,9 +89,12 @@ export function buildPedigreeTree(
   lookup: AnimalLookup,
   startName: string,
   maxGenerations: number = DEFAULT_GENERATIONS,
-  expandAll: boolean = false
+  expandAll: boolean = false,
+  maxCap: number = MAX_GENERATIONS_CAP
 ): PedigreeTreeNode {
-  const cap = clampGenerations(maxGenerations);
+  // `maxCap` lets deeper views (the indented text tree, 20 gens) raise the ceiling
+  // above the default chart cap without changing existing callers.
+  const cap = clampGenerations(maxGenerations, maxCap);
   const visited = new Set<string>(); // global de-dup (default mode)
   const onPath = new Set<string>(); // per-path cycle guard (chart mode)
 

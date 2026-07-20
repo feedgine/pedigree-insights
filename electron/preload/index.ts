@@ -13,6 +13,8 @@ const api: PedigreeApi = {
   getAnimal: (name) => ipcRenderer.invoke(IPC.getAnimal, name),
   getPedigree: (name, generations) =>
     ipcRenderer.invoke(IPC.getPedigree, name, generations),
+  getPedigreeTree: (name, generations) =>
+    ipcRenderer.invoke(IPC.getPedigreeTree, name, generations),
   getLinebreeding: (name, generations, minCrosses) =>
     ipcRenderer.invoke(IPC.getLinebreeding, name, generations, minCrosses),
   getFoundation: (name) => ipcRenderer.invoke(IPC.getFoundation, name),
@@ -23,6 +25,8 @@ const api: PedigreeApi = {
     ipcRenderer.invoke(IPC.setGenerations, generations),
   printPdf: (options) => ipcRenderer.invoke(IPC.printPdf, options),
   savePng: (options) => ipcRenderer.invoke(IPC.savePng, options),
+  saveText: (defaultName, content) =>
+    ipcRenderer.invoke(IPC.saveText, defaultName, content),
 };
 
 contextBridge.exposeInMainWorld('api', api);

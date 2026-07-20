@@ -6,7 +6,7 @@
 
 import { BrowserWindow, dialog, ipcMain } from 'electron';
 import { writeFileSync } from 'node:fs';
-import { assertPrintPdfOptions, assertSavePngOptions } from './validate';
+import { assertPrintPdfOptions, assertSavePngOptions, reqString, reqText } from './validate';
 import { IPC, type SaveResult } from '../../src/lib/ipc';
 
 /** Turn a suggested name into a safe file stem. */
@@ -69,6 +69,32 @@ export function registerExportIpc(getWin: () => BrowserWindow | null): void {
       if (canceled || !filePath) return { canceled: true };
       const base64 = opts.dataUrl.replace(/^data:image\/png;base64,/, '');
       writeFileSync(filePath, Buffer.from(base64, 'base64'));
+      return { canceled: false, filePath };
+    }
+  );
+
+  // Save an exported text report (the Indented Tree pedigree) as a UTF-8 .txt
+  // file via a native Save As dialog. Read-only DB posture is unaffected — this
+  // writes a user-chosen file outside the database, never the .db itself. The
+  // content is produced entirely in the renderer (src/lib/indentedTree.ts), so
+  // the on-screen report and the saved file are byte-identical.
+  ipcMain.handle(
+    IPC.saveText,
+    async (_e, defaultName: unknown, content: unknown): Promise<SaveResult> => {
+      const name = reqString(defaultName, 'defaultName');
+      const text = reqText(content, 'content');
+      const win = getWin();
+      if (!win) return { canceled: true };
+      const { canceled, filePath } = await dialog.showSaveDialog(win, {
+        title: 'Export pedigree as text',
+        defaultPath: `${safeStem(name)}.txt`,
+        filters: [
+          { name: 'Text file', extensions: ['txt'] },
+          { name: 'All files', extensions: ['*'] },
+        ],
+      });
+      if (canceled || !filePath) return { canceled: true };
+      writeFileSync(filePath, text, 'utf-8');
       return { canceled: false, filePath };
     }
   );

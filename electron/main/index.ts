@@ -27,6 +27,7 @@ function timed<T>(label: string, fn: () => T): T {
 }
 import {
   LINEBREEDING_MAX_GENERATIONS,
+  PEDIGREE_TREE_MAX_GENERATIONS,
   clampGenerations,
 } from '../../src/lib/pedigreeAlgorithm';
 import { parseFoundationList } from '../../src/lib/contribution';
@@ -154,6 +155,18 @@ function registerIpc(): void {
     const n = reqNonEmptyString(name, 'name');
     const gens = clampGenerations(reqNumber(generations, 'generations'));
     return timed(`getPedigree(${gens}g)`, () => database!.getPedigree(n, gens));
+  });
+
+  ipcMain.handle(IPC.getPedigreeTree, (_e, name: unknown, generations: unknown) => {
+    if (!database) return null;
+    const n = reqNonEmptyString(name, 'name');
+    // The indented text tree goes deeper than the bracket chart (up to 20 gens);
+    // de-dup traversal keeps that bounded (see database.getPedigreeTree).
+    const gens = clampGenerations(
+      reqNumber(generations, 'generations'),
+      PEDIGREE_TREE_MAX_GENERATIONS
+    );
+    return timed(`getPedigreeTree(${gens}g)`, () => database!.getPedigreeTree(n, gens));
   });
 
   ipcMain.handle(

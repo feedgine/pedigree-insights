@@ -14,6 +14,7 @@ export const IPC = {
   searchAnimals: 'db:search',
   getAnimal: 'db:getAnimal',
   getPedigree: 'db:getPedigree',
+  getPedigreeTree: 'db:getPedigreeTree',
   getLinebreeding: 'db:getLinebreeding',
   getFoundation: 'db:getFoundation',
   importFoundation: 'foundation:import',
@@ -22,6 +23,7 @@ export const IPC = {
   setGenerations: 'config:setGenerations',
   printPdf: 'print:pdf',
   savePng: 'png:save',
+  saveText: 'file:saveText',
 } as const;
 
 /** Options for rendering the current view to a PDF (main process). */
@@ -84,6 +86,12 @@ export interface PedigreeApi {
   getAnimal(name: string): Promise<Animal | null>;
   /** Build the ancestor tree for a Name at the given depth. */
   getPedigree(name: string, generations: number): Promise<PedigreeTreeNode>;
+  /** Build the ancestor tree for the indented TEXT pedigree (de-dup traversal,
+   *  up to 20 generations). Null if no DB is open. */
+  getPedigreeTree(
+    name: string,
+    generations: number,
+  ): Promise<PedigreeTreeNode | null>;
   /** Structural linebreeding report (repeated ancestors and their crosses) for
    *  a Name at the given depth, listing ancestors with >= minCrosses crosses. */
   getLinebreeding(
@@ -111,6 +119,10 @@ export interface PedigreeApi {
   printPdf(options: PrintPdfOptions): Promise<SaveResult>;
   /** Save the full chart as a single PNG (no page limit) via a native dialog. */
   savePng(options: SavePngOptions): Promise<SaveResult>;
+  /** Write `content` as a UTF-8 .txt file via a native "Save As" dialog.
+   *  `defaultName` seeds the dialog's filename (extension added by main).
+   *  Used by the Indented Tree report's "TXT" export. */
+  saveText(defaultName: string, content: string): Promise<SaveResult>;
 }
 
 declare global {

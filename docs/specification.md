@@ -1,9 +1,9 @@
 ---
 title: PedigreeInsights Product Requirements (PRD)
 type: Product Requirements Document
-version: "1.2"
+version: "1.6"
 status: DRAFT — requires Yuliya's review
-updated: 2026-06-27
+updated: 2026-07-20
 license: MIT
 reference_render: SNOWSHOES BOBBI AT LUELDAR 8G.png; Finnish KC (KoiraNet) certificate layout; Pedigree Online linebreeding report; PedigreePub export output (A4/A3 + PNG)
 companion_docs:
@@ -13,6 +13,7 @@ companion_docs:
   - file-structure.md
   - open-items.md
 changelog:
+  - "2026-07-20 (v1.6) — App v1.2.0: the **PedigreeTree bracket tab is REPLACED by an Indented Tree report** — a BreedMate-style indented TEXT pedigree (subject at the left margin, sire block above / dam block below, 4-col indent per generation with `|` connectors; nodes labelled G0/G1/G2… · Name · Reg · DOB; summary header Sex/DOB/COI/AVK). Depth selector **5 / 10 / 20** (was 4–8). Uses DE-DUP traversal (each ancestor expanded once, repeats flagged `[repeat]`) at a raised cap `PEDIGREE_TREE_MAX_GENERATIONS = 20`, so a deep line-bred tree stays bounded as text. New **TXT** export in the Save… menu writes the on-screen text byte-identically. Pedigree, Linebreeding, Foundation tabs unchanged. Additive code: new `src/lib/indentedTree.ts`, `components/IndentedTree.tsx`, IPC `db:getPedigreeTree` + `file:saveText`; no pre-existing test changed (§1, §5, §6.3, §6.7, §7.2, §7.3, §11, §12)."
   - "2026-06-29 (v1.5) — Doc split: design docs (this PRD + companions) are published in the repo under docs/ (renamed from agent_docs/). CLAUDE.md is kept private (git-ignored at repo root). The Task-to-Handoff Working Change Record (former §0), the compliance gap report, and test-run evidence live in the private dev-docs/pedigree-insights/ outside the repo. PRD restored to a clean product spec."
   - "2026-06-29 (v1.4) — Conformed to the Setronica Task-to-Handoff standard via a Working Change Record + gap report (now kept in dev-docs/pedigree-insights/; see working-change-record.md and task-to-handoff-compliance.md). Honest handoff status: NOT ready pending owner review + remote/CI."
   - "2026-06-14 — DB location: config-file-path → file picker on first launch, path saved to config (§6.1, §7.4)"
@@ -67,8 +68,11 @@ It began as an interactive pedigree-chart viewer and has grown into a small
 **analysis tool with four report tabs**:
 
 1. **Pedigree** — a bracket pedigree chart (titles · name · DOB · reg).
-2. **PedigreeTree** — the same bracket chart focused on inbreeding metrics
-   (name · COI · AVK).
+2. **Indented Tree** — a BreedMate-style **indented text pedigree** (the "Family
+   Tree" layout): the subject at the left margin, sire block above and dam block
+   below, indented one level per generation. Each node is labelled with its
+   generation (G0 = subject, G1, G2 …), name, registration and DOB; a summary
+   header shows Sex, DOB, COI and AVK. Exportable to a plain-text **.txt** file.
 3. **Linebreeding** — every ancestor that appears more than once across the sire
    and dam sides, with the generation/line of each cross, plus Blood %, Influence,
    AGR and COI; ranked by Blood % to surface the top influencers.
@@ -112,7 +116,8 @@ The user is comfortable installing a Mac app but is not necessarily technical.
 ### Goals
 
 - Give Mac breeders native access to existing BreedMate data without Windows.
-- Render a clear, readable pedigree chart (two layouts) for any selected animal.
+- Render a clear, readable pedigree in two forms — a bracket chart and an
+  indented text tree (the latter exportable to `.txt`) — for any selected animal.
 - Surface line-breeding (repeated ancestors and their crosses) at a glance.
 - Quantify foundation-dog presence and contribution across all generations.
 - Read directly from the existing BreedMate `.db` without altering it.
@@ -136,12 +141,13 @@ supporting capability (matches Name or Registration).
 | Tab | Purpose | Depth | Genetics |
 |---|---|---|---|
 | **Pedigree** | Bracket chart: titles · name · DOB · reg | 4–8 gens | none |
-| **PedigreeTree** | Bracket chart: name · COI · AVK | 4–8 gens | **displays STORED** COI/AVK from the DB ("—" if absent); no recompute |
+| **Indented Tree** | Indented **text** pedigree: G-label · name · reg · DOB, with a Sex/DOB/COI/AVK header | **5 / 10 / 20** gens | **displays STORED** COI/AVK from the DB ("Not available" if absent) in the header; no recompute |
 | **Linebreeding** | Repeated ancestors + crosses | 4–20 gens | Blood %/Influence + COI/AGR/AVK **computed in-app (stored values ignored)**, ranked by Blood % |
 | **Foundation** | Foundation-dog presence + contribution | all generations | contribution % **computed in-app** (stored values ignored) |
 
 Each tab is detailed in §6. A single **Save…** action exports the active report
-(PDF for any view; PNG additionally for the bracket charts) — see §6.7.
+(PDF for any view; PNG additionally for the Pedigree bracket chart; TXT for the
+Indented Tree) — see §6.7.
 
 ---
 
@@ -164,12 +170,11 @@ message rather than a raw SQLite error.
 A single name lookup (matching `Name` or `Registration`, case-insensitively)
 identifies the subject; picking a result drives every tab.
 
-### 6.3 Pedigree & PedigreeTree (the bracket charts)
+### 6.3 Pedigree (the bracket chart)
 
-Both tabs render the subject's ancestors as a **bracket grid**: generations are
-columns (Parents on the left, deepening rightward), each ancestor cell spans the
-rows of its subtree. The two tabs share the layout and differ only in cell
-content.
+The Pedigree tab renders the subject's ancestors as a **bracket grid**:
+generations are columns (Parents on the left, deepening rightward), each ancestor
+cell spans the rows of its subtree.
 
 **Subject header (certificate style).** The subject is **not** a column in the
 grid; it sits in a header block above the table — `Pedigree of: <Name>` with the
@@ -180,11 +185,11 @@ reference) and frees the grid to start at the **Parents** column.
 **Generation headers.** A header row labels the columns: `Parents`,
 `Grandparents`, `G Grandparents`, `G G Grandparents`, … one per generation.
 
-**Cell content.**
-- *Pedigree* tab: championship **titles** render small and muted on their own
-  line; the **registered name** always starts on a fresh line in a prominent
-  bold; below it, **Reg No.** and **DOB** in a small font. No COI/AVK.
-- *PedigreeTree* tab: the **name** only (no titles), with **COI · AVK** beneath.
+**Cell content.** Championship **titles** render small and muted on their own
+line; the **registered name** always starts on a fresh line in a prominent bold;
+below it, **Reg No.** and **DOB** in a small font. (The bracket chart itself does
+not print COI/AVK per cell — inbreeding metrics live in the Indented Tree header
+and the Linebreeding report.)
 
 **Legibility (a hard requirement).** Title strings in this breed are long
 (`C.I.B. FI CH SE CH … BALTW-00 …`). Cells therefore **grow vertically to fit
@@ -205,6 +210,43 @@ Linebreeding/Foundation tables.)
 
 **Depth.** 4 generations by default, adjustable **4–8** (deeper bracket charts
 are not legible; deep analysis lives in the Linebreeding/Foundation reports).
+
+### 6.3a Indented Tree (the text pedigree)
+
+The Indented Tree tab renders the subject's ancestry as a **BreedMate-style
+indented text pedigree** (the "Family Tree" export layout), shown in a monospace
+block so the ASCII alignment holds. Unlike the bracket chart it is *text* — which
+is exactly what makes it exportable to a plain `.txt` file (§6.7).
+
+**Layout.** The subject sits at the left margin; its **sire block is drawn above**
+and its **dam block below**, indenting one generation-column (4 characters) deeper
+per level. A vertical `|` connector runs on the side of each node that faces the
+parent's spine, giving the classic sideways-tree look. Each node reads
+`G{gen} {Name} {Registration} ({DOB})` — the **generation label** (G0 = subject,
+G1 = parents, G2 = grandparents, …) takes the place of championship titles per the
+2026-07-20 spec; registration and DOB are appended when present. A leading
+**summary header** shows `Pedigree of:`, Sex, Date of Birth, **COI**, **AVK**, and
+the generation depth.
+
+**De-dup traversal + `[repeat]`.** The text tree uses the **de-dup** traversal
+(not the chart's expand-all): each ancestor is expanded **at most once** — the
+first occurrence is drawn in full, and any later occurrence (line-breeding) is
+shown but flagged `[repeat]` and **not** re-expanded. This keeps even a
+20-generation line-bred tree bounded as text (the fully-expanded chart would
+double every generation). Unknown/foundation ancestors render as a **bare `+--`
+slot**, exactly like the BreedMate export.
+
+**Genetics.** The header's COI and AVK are the **stored** values from the database
+shown **verbatim** ("Not available" if absent); the Indented Tree never recomputes
+them (§7.3) — it is a faithful view of the source record, like the Pedigree chart.
+
+**Depth.** Selectable **5 / 10 / 20 generations** (default 5). The traversal cap is
+raised to `PEDIGREE_TREE_MAX_GENERATIONS = 20` for this report (the shared bracket
+cap stays 13); recursion is still depth-limited and cycle-guarded (§6.6).
+
+**Export.** The exact text on screen is produced by a single builder
+(`src/lib/indentedTree.ts`) and is what the **TXT** export writes — the on-screen
+report and the saved file can never drift. See §6.7.
 
 ### 6.4 Linebreeding report
 
@@ -276,15 +318,23 @@ is data-driven so further formats can be added without new buttons. Today it
 offers:
 
 - **PDF** — for every view.
-- **PNG** — additionally for the two bracket charts (Pedigree / PedigreeTree).
+- **PNG** — additionally for the Pedigree bracket chart.
+- **TXT** — additionally for the Indented Tree (plain-text pedigree).
 
-**PDF — one-page certificate.** Charts export **A4/A3 landscape** with the
-**entire bracket fit onto a single page**. The app measures the rendered chart
+**PDF — one-page certificate.** The Pedigree chart exports **A4/A3 landscape** with
+the **entire bracket fit onto a single page**. The app measures the rendered chart
 and scales it to fit both the width and height of the sheet; it uses **A4**, and
 **bumps to A3** when A4 would force an unreadably small scale. The result is a
 one-page overview (text is small at 8 generations, but the whole tree is present
 and printable) rather than a tall chart sliced across many pages. Text reports
-(Linebreeding / Foundation) export **A4 portrait** and may run to several pages.
+(Indented Tree / Linebreeding / Foundation) export **A4 portrait** and may run to
+several pages.
+
+**TXT — the indented text pedigree.** The Indented Tree tab additionally offers a
+**.txt** export: a native Save dialog writes the on-screen report verbatim as a
+UTF-8 text file (built by `src/lib/indentedTree.ts`, so file and screen are
+byte-identical). Read-only posture is unaffected — this writes a user-chosen file
+outside the database, never the `.db`.
 
 Printing is performed by the **Electron main process** (`printToPDF`), *not* the
 renderer's `window.print()`: on macOS `window.print()` ignores the CSS `@page`
@@ -318,13 +368,16 @@ item (§9).
 
 ### 7.2 Generation depth — per report
 
-- **Pedigree / PedigreeTree:** default 4, adjustable **4–8**.
+- **Pedigree (bracket chart):** default 4, adjustable **4–8**.
+- **Indented Tree (text pedigree):** **5 / 10 / 20** (default 5;
+  `PEDIGREE_TREE_MAX_GENERATIONS = 20`). De-dup traversal keeps a deep tree bounded.
 - **Linebreeding:** **4–20** (`LINEBREEDING_MAX_GENERATIONS = 20`).
 - **Foundation:** **all generations**, bounded by a finite safety cap
   (`CONTRIBUTION_MAX_GENERATIONS = 64`; real lines run out far sooner, the cap
   only guarantees termination on circular data).
-- The shared ancestor-traversal hard cap is `MAX_GENERATIONS_CAP = 13`. Every
-  request is clamped; recursion is never unbounded (CLAUDE.md).
+- The default ancestor-traversal cap is `MAX_GENERATIONS_CAP = 13`; the deeper
+  views raise it explicitly (Indented Tree → 20, Linebreeding → 20). Every request
+  is clamped to its view's cap; recursion is never unbounded (CLAUDE.md).
 
 ### 7.3 Genetics policy — COI/AGR/AVK computed in-app (validated), updated 2026-06-27
 
@@ -354,12 +407,13 @@ data verbatim:
 - **Linebreeding** and **Foundation** — COI/AGR/AVK and Blood %/contribution are
   **always computed in-app; any stored `COI`/`AVK`/`AGR` in the database is
   ignored and recalculated.** These reports never depend on stored genetics.
-- **Pedigree** and **PedigreeTree** bracket charts — display the **stored** `COI`/
-  `AVK` from the database **verbatim** when present ("—" otherwise), with **no
-  recomputation**, so the chart shows exactly what the source file holds. (The
-  charts do not show AGR; it is a pairwise subject↔ancestor figure shown, computed,
-  only in Linebreeding.) Rationale: the bracket charts are a faithful *view* of the
-  source record, while the analytical reports are independent computed analyses.
+- **Pedigree** bracket chart and the **Indented Tree** text pedigree — display the
+  **stored** `COI`/`AVK` from the database **verbatim** when present (the Indented
+  Tree shows them in its summary header, "Not available" otherwise), with **no
+  recomputation**, so they show exactly what the source file holds. (Neither shows
+  AGR; it is a pairwise subject↔ancestor figure shown, computed, only in
+  Linebreeding.) Rationale: these two views are a faithful *view* of the source
+  record, while the analytical reports are independent computed analyses.
 
 **Validation requirement (met).** The in-app results are validated to machine
 precision (≤4e-15) against the exact tabular method on the 37k-dog DB **and**
@@ -404,8 +458,9 @@ persisted to config and reused on later launches, surviving the file being moved
   *Optional (used if present, else "—"):* `Sex`, `DOB`, `Registration` (also used
   by search), `PreTitle`, `PostTitle`, `Color`, `Breed`, and the stored genetics
   columns `COI` / `AVK` (or BreedMate's `Inbreeding Coefficient` /
-  `Relationship Coefficient`). Stored genetics are shown only on the bracket
-  charts; the analytical reports recompute and ignore them (§7.3).
+  `Relationship Coefficient`). Stored genetics are shown only on the Pedigree
+  chart and in the Indented Tree header; the analytical reports recompute and
+  ignore them (§7.3).
 
   *Not yet generalised (roadmap §9):* the table name `Pedigree` and the column
   names above are currently fixed; a database using different table/column names
@@ -475,8 +530,10 @@ persisted to config and reused on later launches, surviving the file being moved
   framework or DB-stored report metadata is planned.
 
 Delivered since v1.0 of the original viewer: report export (Save… → PDF one-page
-A4/A3 landscape, and full-resolution PNG); the four-tab report set; the Foundation
-contribution engine; runtime IPC validation and performance instrumentation.
+A4/A3 landscape, full-resolution PNG, and — v1.2 — plain-text TXT for the Indented
+Tree); the four-tab report set (with the Indented Tree text pedigree replacing the
+former PedigreeTree bracket tab in v1.2); the Foundation contribution engine;
+runtime IPC validation and performance instrumentation.
 
 ---
 
@@ -507,7 +564,10 @@ The product is in good shape when, on the target Mac:
 [ ] Pedigree tab: subject in a header block; grid starts at Parents with generation headers.
 [ ] Long titles/names and multiple reg numbers are never clipped (cells grow; tooltip shows full).
 [ ] Repeated ancestors are fully drawn in the chart; a true ancestry loop is stopped (↺), not hung.
-[ ] Pedigree/PedigreeTree depth selectable 4–8; Linebreeding 4–20; Foundation runs to all generations.
+[ ] Indented Tree tab renders the text pedigree (G-labels, sire-above/dam-below, summary header);
+    line-bred ancestors show once and are flagged [repeat]; unknown ancestors show as bare slots.
+[ ] Pedigree depth selectable 4–8; Indented Tree 5/10/20; Linebreeding 4–20; Foundation all generations.
+[ ] Save… → TXT of the Indented Tree writes a .txt file identical to the on-screen text.
 [ ] Linebreeding lists repeated ancestors with crosses/lines; min-crosses filter works.
 [ ] Foundation: importing a list reports matched/unmatched; a chosen dog shows per-founder
     presence + contribution %, and a "X of Y present" summary.
@@ -534,14 +594,18 @@ app.
 
 ### 12.1 Unit tests — pure logic, no real DB
 
-Targets: `pedigreeAlgorithm.ts`, `linebreeding.ts`, `contribution.ts`,
-`queries.ts`, layout helpers — exercised against in-memory animal maps.
+Targets: `pedigreeAlgorithm.ts`, `indentedTree.ts`, `linebreeding.ts`,
+`contribution.ts`, `queries.ts`, layout helpers — exercised against in-memory
+animal maps.
 
 ```
 [ ] Ancestor traversal resolves Sire/Dam by Name and groups by generation.
 [ ] Depth limit and cycle guard (default de-dup mode) terminate and count once.
 [ ] Chart "expand-all" mode fully draws a repeated ancestor at every occurrence,
     while still halting a true ancestry loop.
+[ ] Indented text tree: sideways ASCII layout (sire-above/dam-below, 4-col indent,
+    | connectors), G-labels, DOB formatting, [repeat] on line-bred ancestors,
+    summary header (COI/AVK "Not available" when absent).
 [ ] Linebreeding: common-ancestor crosses, notation, lines split, min-crosses filter,
     final-generation flag, cycle safety.
 [ ] Contribution DP: parents = 1/2, grandparents = 1/4, repeats sum; converges and
@@ -577,9 +641,12 @@ synthetic databases built per schema shape.
 
 ### 12.4 Status
 
-As of 2026-06-27 the unit + integration layers are implemented and green (71 unit
-tests across the modules above, including `chartExport.test.ts` — the pure
-PDF page-planning and PNG pixel-ratio math — plus the integration suite). The
+As of 2026-07-20 (app v1.2.0) the unit + integration layers are implemented and
+green: **91 unit tests** across the modules above, including the new
+`indentedTree.test.ts` (8 tests) and `chartExport.test.ts` (the pure PDF
+page-planning and PNG pixel-ratio math), plus the integration suite; `tsc
+--noEmit` is clean. (The v1.1 baseline was 71→83 unit tests.) The native
+`better-sqlite3` integration tests must be re-run on the target Mac. The
 end-to-end layer is intended, not yet built.
 
 ---

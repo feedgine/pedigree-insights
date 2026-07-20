@@ -1,6 +1,6 @@
 # PedigreeInsights
 
-A free, open-source (MIT) **macOS** desktop **pedigree-database analysis tool**. It is **source-agnostic**: it reads any **SQLite** file that exposes a pedigree table in the expected shape (see [Database requirements](#database-requirements)). [BreedMate](https://www.breedmate.com/) exports are the primary, fully-tested format — BreedMate is Windows-only, so a Mac-based breeder can open their existing BreedMate SQLite file and study any animal's ancestry across four reports — pedigree charts, line-breeding, and foundation contribution — with no Windows machine required.
+A free, open-source (MIT) **macOS** desktop **pedigree-database analysis tool**. It is **source-agnostic**: it reads any **SQLite** file that exposes a pedigree table in the expected shape (see [Database requirements](#database-requirements)). [BreedMate](https://www.breedmate.com/) exports are the primary, fully-tested format — BreedMate is Windows-only, so a Mac-based breeder can open their existing BreedMate SQLite file and study any animal's ancestry across four reports — a pedigree bracket chart, an indented text pedigree (exportable to `.txt`), line-breeding, and foundation contribution — with no Windows machine required.
 
 PedigreeInsights is **read-only**. The source database remains the source of truth for all data entry; PedigreeInsights never modifies the file.
 
@@ -10,11 +10,11 @@ PedigreeInsights is **read-only**. The source database remains the source of tru
 - Look up a dog by name (or registration number).
 - Four report tabs:
   - **Pedigree** — bracket chart showing Titles · Name · DOB · Reg.
-  - **PedigreeTree** — bracket chart showing Name · COI · AVK.
+  - **Indented Tree** — a BreedMate-style **indented text pedigree** (the "Family Tree" layout): the subject at the left margin, sire block above and dam block below, indenting one level per generation with `|` connectors. Each node is labelled with its generation (G0 = subject, G1, G2 …), Name, Registration and DOB; the header summarises Sex, DOB, COI and AVK. Line-bred ancestors are expanded once and later occurrences flagged `[repeat]`; unknown ancestors show as bare slots. **5 / 10 / 20 generations** (selector). Exportable to **.txt** (see Export) — what you see on screen is byte-identical to the saved file.
   - **Linebreeding** — ancestors appearing more than once across the sire and dam sides, with the generation/line of every cross; 4–20 generations. Columns mirror PedigreeOnline: Crosses, Lines (sire/dam split), **Blood %** (Wright's ½^generation contribution), **Influence** (the equivalent cross pair), **AGR** (additive genetic relationship to the subject) and **COI** (each ancestor's own inbreeding). Rows are ranked by Blood % to surface the **top influencers**.
   - **Foundation** — import a list of foundation dogs; for any chosen dog, see each foundation's presence and genetic contribution across all generations.
-- Bracket charts: **4–8 generations** (selector); Linebreeding 4–20; Foundation runs across all generations.
-- **Export** any report with **Save…**: a single-page **PDF** (A4, or A3 landscape for a deep chart), or — for the charts — a full-resolution **PNG** of the whole tree with no page limit.
+- Generation depth: **Pedigree** bracket chart 4–8; **Indented Tree** 5 / 10 / 20; **Linebreeding** 4–20; **Foundation** runs across all generations.
+- **Export** any report with **Save…**: a single-page **PDF** (A4, or A3 landscape for a deep chart); for the bracket chart, a full-resolution **PNG** of the whole tree with no page limit; for the Indented Tree, a plain-text **.txt** file.
 - Robust on imperfect data: traversal is iterative/cycle-guarded and never hangs; pedigree **cycles** (a dog within its own ancestry) are detected, broken for the math, and **surfaced as a warning** listing the offending dogs so the data can be corrected.
 - Read-only: BreedMate stays the source of truth; the `.db` is never modified.
 
@@ -99,8 +99,9 @@ Integration tests run against `tests/fixtures/DogSampleData.db`. Place a BreedMa
 - `src/lib/linebreeding.ts` · `src/lib/contribution.ts` — repeated-ancestor/cross analysis (incl. Blood % and Influence) and the memoized Foundation contribution engine.
 - `src/lib/genetics.ts` — in-app relationship-matrix genetics: COI (Meuwissen-Luo), AGR (Colleau indirect), AVK (BigInt ancestor-loss), with cycle detection. Iterative and validated; runs as a pre-report step.
 - `src/lib/tableLayout.ts` — bracket-grid cell placement (rowSpan/col) for the chart table; `lineColors.ts` tints repeated ancestors.
+- `src/lib/indentedTree.ts` — renders a traversal node as the BreedMate-style indented ASCII text pedigree + summary header; the single source of truth for both the on-screen Indented Tree report and the `.txt` export (they can never drift).
 - `src/lib/chartExport.ts` — export orchestration: the one-page PDF plan and the PNG capture (with a canvas-safe pixel ratio).
-- `electron/main/` — the only place the database is opened (read-only): IPC handlers (runtime-validated via `validate.ts`, timed for profiling), the PDF/PNG file writers (`export.ts`), file picker, and config persistence.
+- `electron/main/` — the only place the database is opened (read-only): IPC handlers (runtime-validated via `validate.ts`, timed for profiling), the PDF/PNG/TXT file writers (`export.ts`), file picker, and config persistence.
 - `electron/preload/` — narrow, typed `window.api` bridge (contextIsolation on).
 
 `Sire`/`Dam` in BreedMate are **Name text strings**, not integer foreign keys, so traversal is a self-join on `Name`. See `docs/` for the confirmed schema map, stack decisions, and algorithm notes.

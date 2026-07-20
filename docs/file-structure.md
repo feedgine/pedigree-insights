@@ -50,7 +50,7 @@ pedigree-insights/
 │   ├── main/
 │   │   ├── index.ts                  ← app lifecycle, window, IPC handlers (validated + timed), CSP
 │   │   ├── database.ts               ← PedigreeDatabase (better-sqlite3, read-only)
-│   │   ├── export.ts                 ← PDF (printToPDF) + PNG file-save IPC handlers
+│   │   ├── export.ts                 ← PDF (printToPDF) + PNG + TXT file-save IPC handlers
 │   │   ├── validate.ts               ← runtime IPC payload guards (assert/req helpers)
 │   │   └── config.ts                 ← saved db path, depth, foundation list (userData JSON)
 │   └── preload/
@@ -62,7 +62,8 @@ pedigree-insights/
 │   ├── components/
 │   │   ├── FirstRun.tsx              ← first-launch / file-picker screen
 │   │   ├── SearchPanel.tsx           ← name/registration lookup
-│   │   ├── PedigreeTable.tsx         ← bracket chart (Pedigree & PedigreeTree variants)
+│   │   ├── PedigreeTable.tsx         ← bracket chart (Pedigree tab; 'tree' variant retained, unused)
+│   │   ├── IndentedTree.tsx          ← Indented Tree tab: monospace <pre> of the text pedigree
 │   │   ├── LinebreedingReport.tsx    ← repeated-ancestor crosses table
 │   │   ├── FoundationReport.tsx      ← foundation import + contribution table
 │   │   ├── SaveMenu.tsx              ← "Save…" dropdown; data-driven export-format picker
@@ -73,6 +74,7 @@ pedigree-insights/
 │       ├── queries.ts                ← every SQL string + schema-adaptive projection
 │       ├── ipc.ts                    ← shared IPC channel names + window.api types
 │       ├── pedigreeAlgorithm.ts      ← ancestor tree (default de-dup + chart expand-all), caps
+│       ├── indentedTree.ts           ← builds the BreedMate-style indented TEXT pedigree (screen + .txt)
 │       ├── linebreeding.ts           ← repeated-ancestor / crosses analysis
 │       ├── contribution.ts           ← memoized contribution DP + Foundation report + list parser
 │       ├── lineColors.ts             ← line-family colour assignment for repeated ancestors
@@ -82,7 +84,7 @@ pedigree-insights/
 │
 ├── tests/
 │   ├── unit/                         ← pure-logic tests (no real DB)
-│   │   ├── pedigreeAlgorithm.test.ts · linebreeding.test.ts · contribution.test.ts
+│   │   ├── pedigreeAlgorithm.test.ts · indentedTree.test.ts · linebreeding.test.ts · contribution.test.ts
 │   │   ├── queries.test.ts · tableLayout.test.ts · layout.test.ts · lineColors.test.ts
 │   │   ├── chartExport.test.ts       ← pure PDF page-planning + PNG pixel-ratio math
 │   └── integration/

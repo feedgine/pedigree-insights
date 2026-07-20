@@ -12,6 +12,7 @@ import type { PrintPdfOptions, SavePngOptions } from '../../src/lib/ipc';
 const MAX_NAME_LEN = 512;
 const MAX_QUERY_LEN = 512;
 const MAX_DATAURL_BYTES = 512 * 1024 * 1024; // 512 MB ceiling for a PNG data URL
+const MAX_TEXT_LEN = 16 * 1024 * 1024; // 16 MB ceiling for an exported .txt report
 
 export function reqString(v: unknown, field: string, maxLen = MAX_NAME_LEN): string {
   if (typeof v !== 'string') throw new Error(`Invalid ${field}: expected a string`);
@@ -40,6 +41,12 @@ export function optNumber(v: unknown, field: string): number | undefined {
 
 export function reqSearchQuery(v: unknown): string {
   return reqString(v, 'query', MAX_QUERY_LEN);
+}
+
+/** Body of an exported text report — a plain string, up to MAX_TEXT_LEN. May be
+ *  empty (an empty report still writes a valid, if empty, file). */
+export function reqText(v: unknown, field = 'content'): string {
+  return reqString(v, field, MAX_TEXT_LEN);
 }
 
 export function assertPrintPdfOptions(v: unknown): asserts v is PrintPdfOptions {

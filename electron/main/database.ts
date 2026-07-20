@@ -19,6 +19,7 @@ import {
   AnimalLookup,
   ChildrenLookup,
   PedigreeTreeNode,
+  PEDIGREE_TREE_MAX_GENERATIONS,
   buildPedigreeTree,
   countAncestors,
 } from '../../src/lib/pedigreeAlgorithm';
@@ -104,6 +105,21 @@ export class PedigreeDatabase {
    *  pedigree. */
   getPedigree(name: string, generations: number): PedigreeTreeNode {
     return buildPedigreeTree(this.lookup, name, generations, true);
+  }
+
+  /** Build the ancestor tree for the indented TEXT pedigree ("Indented Tree"
+   *  tab). Unlike the bracket chart this uses DE-DUP traversal (expandAll=false):
+   *  each animal is expanded at most once and later occurrences are flagged
+   *  `repeated`, so a deep (up to 20-gen) line-bred tree stays bounded as text
+   *  instead of doubling every generation. */
+  getPedigreeTree(name: string, generations: number): PedigreeTreeNode {
+    return buildPedigreeTree(
+      this.lookup,
+      name,
+      generations,
+      false,
+      PEDIGREE_TREE_MAX_GENERATIONS
+    );
   }
 
   ancestorCount(name: string, generations: number): number {
