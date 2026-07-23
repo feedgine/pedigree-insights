@@ -1,6 +1,6 @@
 appId: com.pedigreeinsights.app
 productName: PedigreeInsights
-copyright: MIT licensed
+copyright: © 2026 Yuliya Malinina — MIT licensed
 directories:
   output: release
   buildResources: build

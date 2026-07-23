@@ -20,7 +20,12 @@ const COL_W = 210; // px per generation column (fixed, like the Finnish KC layou
  *  - 'tree':     Name only (no titles), with COI · AVK detail on every cell. */
 export type PedigreeVariant = 'pedigree' | 'tree';
 
-function fmtPct(v: number | null): string {
+// Stored COI is a FRACTION in [0,1] (0.19 = 19%) → ×100 for the percentage.
+function fmtCoi(v: number | null): string {
+  return v == null ? '—' : `${(v * 100).toFixed(1)}%`;
+}
+// Stored AVK is ALREADY a percentage in [0,100] (≤100% by definition) → shown raw.
+function fmtAvk(v: number | null): string {
   return v == null ? '—' : `${v.toFixed(1)}%`;
 }
 
@@ -47,7 +52,8 @@ function SubjectHeader({
     ['Breed', animal.breed],
     ['Reg No.', animal.registration],
     ['Color', animal.color],
-    ['COI', animal.coi == null ? null : `${animal.coi.toFixed(2)}%`],
+    // COI is a stored fraction → ×100; AVK is already a percentage → shown raw.
+    ['COI', animal.coi == null ? null : `${(animal.coi * 100).toFixed(2)}%`],
     ['AVK', animal.avk == null ? null : `${animal.avk.toFixed(2)}%`],
   ];
   return (
@@ -135,7 +141,7 @@ function Cell({
         </>
       ) : (
         <div className="ptcell__meta">
-          COI {fmtPct(a.coi)} · AVK {fmtPct(a.avk)}
+          COI {fmtCoi(a.coi)} · AVK {fmtAvk(a.avk)}
         </div>
       )}
     </div>

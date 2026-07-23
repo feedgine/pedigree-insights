@@ -105,7 +105,9 @@ describe('line-bred (repeated) ancestor', () => {
 describe('buildPedigreeText — full report', () => {
   it('emits the summary header then the tree, ending in a newline', () => {
     const withGenetics = makeLookup([
-      animal('A', 'B', 'C', { sex: 'M', dob: '2018-04-02', coi: 6.25, avk: 80 }),
+      // Stored COI is a FRACTION (0.0625 → 6.25%); stored AVK is ALREADY a
+      // PERCENTAGE and shown raw (80 → 80.00%, ≤100% by definition).
+      animal('A', 'B', 'C', { sex: 'M', dob: '2018-04-02', coi: 0.0625, avk: 80 }),
       animal('B', null, null),
       animal('C', null, null),
     ]);

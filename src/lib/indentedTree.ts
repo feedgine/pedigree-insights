@@ -19,6 +19,7 @@
 // [DRAFT — requires Yuliya's review] until confirmed working on the target Mac.
 
 import type { PedigreeTreeNode } from './pedigreeAlgorithm';
+import { pctFromFraction, pctFromPercent } from './schema';
 
 /** Segments occupying one generation column (4 chars) in a line prefix. */
 const BLANK = '    ';
@@ -89,10 +90,6 @@ export function buildIndentedTree(root: PedigreeTreeNode): string[] {
   return lines;
 }
 
-/** Percentage display shared by COI and AVK; null → 'Not available'. */
-function pct(value: number | null | undefined): string {
-  return value == null ? 'Not available' : `${value.toFixed(2)}%`;
-}
 
 /**
  * The complete text report: summary header + blank line + indented tree.
@@ -110,8 +107,8 @@ export function buildPedigreeText(
     `Pedigree of:  ${name}`,
     `Sex:  ${a?.sex ?? '—'}`,
     `Date of Birth:  ${formatDob(a?.dob ?? null)}`,
-    `COI:  ${pct(a?.coi ?? null)}`,
-    `AVK:  ${pct(a?.avk ?? null)}`,
+    `COI:  ${pctFromFraction(a?.coi ?? null)}`, // stored fraction → ×100
+    `AVK:  ${pctFromPercent(a?.avk ?? null)}`, // stored percentage → raw (≤100%)
     `Generations:  ${generations}`,
     '',
   ];

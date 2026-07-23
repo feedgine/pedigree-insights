@@ -3,11 +3,13 @@
 // PDF). Lists every ancestor that appears more than once across the sire and
 // dam sides, with the generation/line of each cross.
 //
-// Columns: Name · Crosses · # · Lines · Blood % · Influence · AGR · COI. The
+// Columns: Name · Crosses · # · Lines · Blood % · Influence · COR · COI. The
 // Name is shown WITHOUT championship titles (this is a numbers-focused report;
-// titles add noise and width). Blood %/Influence are structural; COI/AGR/AVK are
+// titles add noise and width). Blood %/Influence are structural; COI/COR/AVK are
 // computed in-app (genetics engine) as a pre-report step — all computed
-// estimates, labelled in the footnote.
+// estimates, labelled in the footnote. (COR = Coefficient of Relationship, the
+// additive genetic relationship; Blood % = Percent of Blood / Genetic
+// Contribution Coefficient.)
 //
 // [DRAFT — requires Yuliya's review]
 import React from 'react';
@@ -15,7 +17,7 @@ import type {
   AncestorCrosses,
   LinebreedingReport as Report,
 } from '@/lib/linebreeding';
-import { coiDisplay } from '@/lib/schema';
+import { coiDisplay, pctFromPercent } from '@/lib/schema';
 
 const MIN_CROSS_CHOICES = [2, 3, 4, 5];
 
@@ -78,7 +80,8 @@ export default function LinebreedingReport({
           <li>
             {report.generations}-generation Coefficient of Inbreeding (COI):{' '}
             <strong>{coiDisplay(report.subjectCoi)}</strong>
-            {report.subjectAvk != null && ` · AVK ${report.subjectAvk.toFixed(2)}%`}
+            {report.subjectAvk != null &&
+              ` · AVK (Ancestor Loss Coefficient) ${pctFromPercent(report.subjectAvk)}`}
           </li>
           <li>
             Unique ancestors in {report.generations} generations (
@@ -94,7 +97,7 @@ export default function LinebreedingReport({
               {report.geneticsWarnings.length === 1 ? '' : 's'} detected
             </strong>{' '}
             — a dog appears in its own ancestry (a data error). These edges were
-            broken so COI/AGR could still be computed; please correct the data:
+            broken so COI/COR could still be computed; please correct the data:
             <ul className="lb__cycle-list">
               {report.geneticsWarnings.map((w, i) => (
                 <li key={i}>
@@ -107,12 +110,14 @@ export default function LinebreedingReport({
         )}
 
         <p className="lb__note">
-          Crosses, Lines, Blood % and Influence are structural. Blood % is Wright's
-          ½^generation contribution and Influence is its equivalent-cross
-          restatement; rows are ranked by Blood % to surface top influencers. COI
-          (Meuwissen-Luo), AGR (Colleau) and AVK (ancestor-loss) are computed
-          in-app from the full pedigree as a pre-report step — all computed
-          estimates, distinct quantities. An em dash (—) means not yet computed.
+          Crosses, Lines, Blood % and Influence are structural. Blood % (Percent of
+          Blood / Genetic Contribution Coefficient) is Wright's ½^generation
+          contribution and Influence is its equivalent-cross restatement; rows are
+          ranked by Blood % to surface top influencers. COI (Coefficient of
+          Inbreeding, Meuwissen-Luo), COR (Coefficient of Relationship, Colleau) and
+          AVK (Ancestor Loss Coefficient) are computed in-app from the full pedigree
+          as a pre-report step — all computed estimates, distinct quantities. An em
+          dash (—) means not yet computed.
         </p>
       </div>
 
@@ -153,16 +158,16 @@ export default function LinebreedingReport({
               <th className="lb-cell lb-cell--num" title="Total (sire-side)(dam-side)">
                 Lines
               </th>
-              <th className="lb-cell lb-cell--num lb-cell--gen" title="Genetic blood contribution to the subject = Σ ½^generation over its crosses — a computed estimate (rows are ranked by this)">
+              <th className="lb-cell lb-cell--num lb-cell--gen" title="Percent of Blood (Genetic Contribution Coefficient) — the ancestor's blood contribution to the subject = Σ ½^generation over its crosses (Wright); a computed estimate, rows are ranked by this">
                 Blood %
               </th>
               <th className="lb-cell lb-cell--num" title="Influence — the equivalent cross pair (n×n / n×(n+1)) representing the Blood % contribution; '< 7x7' below the 7×7 floor">
                 Influence
               </th>
-              <th className="lb-cell lb-cell--num lb-cell--gen" title="Additive Genetic Relationship subject↔ancestor (Colleau's indirect method) — computed in-app from the full pedigree">
-                AGR
+              <th className="lb-cell lb-cell--num lb-cell--gen" title="COR — Coefficient of Relationship between subject and ancestor (additive genetic relationship, Colleau's indirect method) — computed in-app from the full pedigree">
+                COR
               </th>
-              <th className="lb-cell lb-cell--num lb-cell--gen" title="Ancestor's own Coefficient of Inbreeding (Meuwissen-Luo) — computed in-app from the full pedigree">
+              <th className="lb-cell lb-cell--num lb-cell--gen" title="COI — the ancestor's own Coefficient of Inbreeding (Meuwissen-Luo) — computed in-app from the full pedigree">
                 COI
               </th>
             </tr>

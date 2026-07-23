@@ -87,17 +87,49 @@ export function toAnimal(row: AnimalRow): Animal {
     postTitle: row.postTitle,
     color: row.color,
     breed: row.breed,
+    // Stored VERBATIM from the source DB — the model stays faithful to the file;
+    // scale conversion happens only at the display edge. The two coefficients are
+    // stored on DIFFERENT scales:
+    //   • COI (Coefficient of Inbreeding) — a FRACTION in [0,1] (0.19 = 19%);
+    //     display multiplies ×100 (see `pctFromFraction`).
+    //   • AVK (Ancestor Loss Coefficient / Ahnenverlustkoeffizient) — ALREADY a
+    //     PERCENTAGE in [0,100] and ≤100% by definition (100% = every ancestor
+    //     slot unique, zero loss); display shows it raw (see `pctFromPercent`),
+    //     NEVER ×100 — doing so pushes it past 100% and is wrong.
+    // @author Yuliya Malinina <julia.malinina@gmail.com> — scale decision, 2026-07-20
     coi: row.coi,
     avk: row.avk,
   };
 }
 
 /**
- * COI display. The app NEVER computes COI (stack-decision.md, PRD §7.3) — it
- * only renders a value the external script has written, or "Not available".
+ * Format a value that is ALREADY a percentage [0,100] (e.g. the in-app genetics
+ * engine's computed COI/AGR, which are pre-scaled ×100). Null → "Not available".
+ * For a stored coefficient held as a fraction [0,1], use `pctFromFraction`.
  */
 export function coiDisplay(value: number | null): string {
   return value == null ? 'Not available' : `${value.toFixed(2)}%`;
+}
+
+/**
+ * Format a stored value held as a FRACTION in [0,1] as a percentage
+ * (0.19 → "19.00%"). Use for the stored **COI** (Coefficient of Inbreeding), which
+ * the source DB stores as a fraction. Null → "Not available".
+ * @author Yuliya Malinina <julia.malinina@gmail.com> — 2026-07-20
+ */
+export function pctFromFraction(value: number | null | undefined, digits = 2): string {
+  return value == null ? 'Not available' : `${(value * 100).toFixed(digits)}%`;
+}
+
+/**
+ * Format a value that is ALREADY a percentage in [0,100] — shown raw, no scaling
+ * (80 → "80.00%"). Use for the stored **AVK** (Ancestor Loss Coefficient), which
+ * the source DB stores as a percentage and which is ≤100% by definition — so it
+ * must NEVER be multiplied by 100 again. Null → "Not available".
+ * @author Yuliya Malinina <julia.malinina@gmail.com> — 2026-07-21
+ */
+export function pctFromPercent(value: number | null | undefined, digits = 2): string {
+  return value == null ? 'Not available' : `${value.toFixed(digits)}%`;
 }
 
 /**
