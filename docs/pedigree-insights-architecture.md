@@ -127,7 +127,9 @@ existing traversal, genetics, line-breeding analysis, colour-coding and export a
 operate on the litter unchanged. The litter's COI **is** the coancestry of its
 parents (computed by the same validated engine). Added on top: an Appendix-C
 classifier (notes only; kennel-/selection-level methods not asserted) and warn-only
-sex/age checks. Details: `docs/hypothetical-mating.md`.
+sex/age checks. The drawn bracket is capped at 8 generations for legibility
+(`HYPOTHETICAL_MATING_CHART_MAX_GENERATIONS`, the Pedigree tab's own max) while COI/AVK + common-ancestor
+analysis use the full selected 3–10 depth. Details: `docs/hypothetical-mating.md`.
 
 ## 7. Tests & how to run
 

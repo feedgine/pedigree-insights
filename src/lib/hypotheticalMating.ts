@@ -44,6 +44,15 @@ export const HYPOTHETICAL_MATING_MIN_GENERATIONS = 3;
 export const HYPOTHETICAL_MATING_MAX_GENERATIONS = 10;
 export const DEFAULT_HYPOTHETICAL_MATING_GENERATIONS = 5;
 
+/** The projected-pedigree CHART is an expand-all bracket (2^gen cells) and is
+ *  rendered exactly like the Pedigree tab's bracket, so it is capped at the SAME
+ *  legible maximum the Pedigree tab uses (PRD §6.3: up to 8 → 256 cells). Beyond
+ *  8 a bracket is unreadable and can't be exported to one page (10 generations on
+ *  a line-bred population is ~1024 rows). The litter COI/AVK and the common-ancestor
+ *  analysis still use the full selected depth (3–10); only the drawn bracket is
+ *  bounded. */
+export const HYPOTHETICAL_MATING_CHART_MAX_GENERATIONS = 8;
+
 /** Label for the virtual, never-persisted offspring node (the planned litter). */
 export const PLANNED_LITTER_NAME = '(Planned litter)';
 
@@ -95,8 +104,11 @@ export interface HypotheticalMatingReport {
   damName: string;
   sire: Animal | null;
   dam: Animal | null;
-  /** Depth the projection was built to (clamped to 3–10). */
+  /** Analysis depth (clamped to 3–10): drives common ancestors, AVK, classification. */
   generations: number;
+  /** Depth the bracket CHART was actually drawn to (<= generations; capped for
+   *  legibility at HYPOTHETICAL_MATING_CHART_MAX_GENERATIONS). */
+  chartGenerations: number;
   /** Projected offspring pedigree (expand-all, cycle-guarded) for the chart. */
   tree: PedigreeTreeNode;
   /** Litter COI = coancestry(sire, dam), a percentage [0,100] (computed estimate). */
@@ -135,11 +147,15 @@ export function buildHypotheticalMating(
   const matingLookup = makeMatingLookup(lookup, sireName, damName);
 
   // Chart: expand-all so both parents' sides are fully drawn and repeated
-  // (= common) ancestors get colour-coded, exactly like the Pedigree tab.
+  // (= common) ancestors get colour-coded, exactly like the Pedigree tab. The
+  // bracket is capped at HYPOTHETICAL_MATING_CHART_MAX_GENERATIONS for legibility
+  // (a deeper expand-all bracket is unreadable / can't export to one page); the
+  // COI/AVK and common-ancestor analysis below still use the full `gens`.
+  const chartGens = Math.min(gens, HYPOTHETICAL_MATING_CHART_MAX_GENERATIONS);
   const tree = buildPedigreeTree(
     matingLookup,
     PLANNED_LITTER_NAME,
-    gens,
+    chartGens,
     true,
     MAX_GENERATIONS_CAP,
   );
@@ -168,6 +184,7 @@ export function buildHypotheticalMating(
     sire,
     dam,
     generations: gens,
+    chartGenerations: chartGens,
     tree,
     litterCoi: report.subjectCoi,
     litterAvk: report.subjectAvk,

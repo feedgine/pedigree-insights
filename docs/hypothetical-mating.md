@@ -33,7 +33,7 @@ No new genetics, schema, or DB-contract code — only composition.
 
 | File | Role |
 |---|---|
-| `src/lib/hypotheticalMating.ts` | virtual-offspring lookup + `buildHypotheticalMating()` orchestrator + `HypotheticalMatingReport` type + depth window (3–10, default 5) |
+| `src/lib/hypotheticalMating.ts` | virtual-offspring lookup + `buildHypotheticalMating()` orchestrator + `HypotheticalMatingReport` type + analysis depth window (3–10, default 5) and chart cap (`HYPOTHETICAL_MATING_CHART_MAX_GENERATIONS = 8`) |
 | `src/lib/matingClassifier.ts` | Appendix-C classifier (8 methods + outcross) over the line-breeding rows |
 | `src/lib/matingChecks.ts` | warn-only sex/age checks (`asOf` injected for determinism) |
 | `src/components/HypotheticalMatingView.tsx` | self-contained view: two parent pickers + `useResource` fetch + `onReady` |
@@ -72,6 +72,21 @@ no warning. DOB parsing accepts ISO and BreedMate `M/D/YYYY`.
 The projected pedigree is a standard `.pttable`, so PDF (one-page A4/A3 landscape)
 and PNG reuse `chartExport.ts` unchanged. `@media print` strips the pickers and the
 analysis header so the PDF is the bracket itself, matching the Pedigree tab.
+
+## Chart depth is capped (legibility)
+
+The projected pedigree is an **expand-all bracket** (2^gen cells), so — like the
+Pedigree tab (§6.3) — the drawn chart is capped at
+`HYPOTHETICAL_MATING_CHART_MAX_GENERATIONS = 8` — the same maximum the Pedigree tab
+uses. On a line-bred population, 10 generations is ~1024 rows: the near cells become enormous (a parent spans half the
+grid, its text tiny and centred), and the one-page PDF fit shrinks the text until it
+overlaps — i.e. an unusable export. The selector still drives the FULL analysis
+(litter COI is computed over the entire pedigree regardless; AVK, common ancestors
+and classification use the selected 3–10), but the bracket only draws the first 8
+generations, with an on-screen note when `chartGenerations < generations`. The chart
+pane is rendered exactly like the Pedigree tab (definite-height box, self-scrolling
+`.pttable`) so its one-page PDF/PNG export is identical. For deep
+line-breeding detail, the Linebreeding tab goes to 20.
 
 ## Open items
 

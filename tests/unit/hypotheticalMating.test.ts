@@ -3,7 +3,7 @@
 // chosen parents, computed by the SAME validated engine used elsewhere. No DB.
 import { describe, it, expect } from 'vitest';
 import type { Animal } from '@/lib/schema';
-import type { AnimalLookup } from '@/lib/pedigreeAlgorithm';
+import type { AnimalLookup, PedigreeTreeNode } from '@/lib/pedigreeAlgorithm';
 import { createGeneticsEngine } from '@/lib/genetics';
 import {
   buildHypotheticalMating,
@@ -12,6 +12,7 @@ import {
   PLANNED_LITTER_NAME,
   HYPOTHETICAL_MATING_MIN_GENERATIONS,
   HYPOTHETICAL_MATING_MAX_GENERATIONS,
+  HYPOTHETICAL_MATING_CHART_MAX_GENERATIONS,
 } from '@/lib/hypotheticalMating';
 
 function animal(name: string, sire: string | null, dam: string | null, sex: Animal['sex'] = null): Animal {
@@ -117,5 +118,33 @@ describe('buildHypotheticalMating — plumbing', () => {
     const r = buildHypotheticalMating(lookup, 'SI', 'DA', 8, ASOF);
     expect(Number.isFinite(r.litterCoi ?? NaN)).toBe(true);
     expect((r.geneticsWarnings ?? []).length).toBeGreaterThan(0);
+  });
+});
+
+function treeDepth(node: PedigreeTreeNode): number {
+  let d = node.generation;
+  if (node.sire) d = Math.max(d, treeDepth(node.sire));
+  if (node.dam) d = Math.max(d, treeDepth(node.dam));
+  return d;
+}
+
+describe('projected chart is capped for legibility (analysis keeps full depth)', () => {
+  it('caps the drawn bracket at HYPOTHETICAL_MATING_CHART_MAX_GENERATIONS', () => {
+    // A long sire line (8 deep) on SI; DA unrelated. Analysis depth 10, chart cap 6.
+    const chain: Animal[] = [animal('SI', 'S1', null, 'M'), animal('DA', null, null, 'F')];
+    for (let i = 1; i <= 8; i++) {
+      chain.push(animal(`S${i}`, i < 8 ? `S${i + 1}` : null, null, 'M'));
+    }
+    const r = buildHypotheticalMating(makeLookup(chain), 'SI', 'DA', 10, ASOF);
+    expect(r.generations).toBe(10);                                   // analysis honours the selection
+    expect(r.chartGenerations).toBe(HYPOTHETICAL_MATING_CHART_MAX_GENERATIONS); // = 6
+    // The tree is truncated to the chart cap (deepest node at generation 6, not 8+).
+    expect(treeDepth(r.tree)).toBe(HYPOTHETICAL_MATING_CHART_MAX_GENERATIONS);
+  });
+
+  it('does not cap when the selected depth is already within the chart limit', () => {
+    const lookup = makeLookup([animal('SI', null, null, 'M'), animal('DA', null, null, 'F')]);
+    const r = buildHypotheticalMating(lookup, 'SI', 'DA', 5, ASOF);
+    expect(r.chartGenerations).toBe(5);
   });
 });

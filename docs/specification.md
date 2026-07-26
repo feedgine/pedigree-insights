@@ -3,7 +3,7 @@ title: PedigreeInsights Product Requirements (PRD)
 type: Product Requirements Document
 version: "1.8"
 status: DRAFT — requires Yuliya's review
-updated: 2026-07-25
+updated: 2026-07-26
 license: MIT
 reference_render: SNOWSHOES BOBBI AT LUELDAR 8G.png; Finnish KC (KoiraNet) certificate layout; Pedigree Online linebreeding report; PedigreePub export output (A4/A3 + PNG)
 companion_docs:
@@ -134,7 +134,7 @@ supporting capability (matches Name or Registration).
 | **Indented Tree** | Indented **text** pedigree: G-label · name · reg · DOB, with a Sex/DOB/COI/AVK header | **5 / 10 / 20** gens | **displays STORED** COI/AVK from the DB ("Not available" if absent) in the header; no recompute |
 | **Linebreeding** | Repeated ancestors + crosses | 4–20 gens | Blood %/Influence + COI/AGR/AVK **computed in-app (stored values ignored)**, ranked by Blood % |
 | **Foundation** | Foundation-dog presence + contribution | all generations | contribution % **computed in-app** (stored values ignored) |
-| **Hypothetical Mating** | Projected pedigree of a planned dam × sire litter | 3–10 gens | litter COI/AVK **computed in-app**; common ancestors highlighted |
+| **Hypothetical Mating** | Projected pedigree of a planned dam × sire litter | 3–10 gens (chart capped ≤8) | litter COI/AVK **computed in-app**; common ancestors highlighted |
 
 Each tab is detailed in §6. A single **Save…** action exports the active report
 (PDF for any view; PNG additionally for the Pedigree bracket chart; TXT for the
@@ -362,8 +362,15 @@ animal here is out of scope (roadmap §9).
 
 **Projected pedigree.** The app builds a virtual offspring whose sire and dam
 subtrees are the two selected animals' pedigrees, and renders the combined pedigree
-**3–10 generations** deep (default 5). The "repeated ancestors fully drawn /
-cycle-guarded" behaviour of §6.3 applies.
+up to the selected depth (default 5). The "repeated ancestors fully drawn /
+cycle-guarded" behaviour of §6.3 applies. The selected depth (**3–10**) drives the
+litter COI/AVK and common-ancestor analysis, but the **drawn bracket chart is capped
+at 8 generations** for legibility: a deeper expand-all bracket is not readable and
+cannot be exported to one page (on a line-bred population, 10 generations is ~1024
+rows) — the same legibility limit as the Pedigree chart (§6.3). On a deep pedigree the
+chart therefore shows the first 8 generations (with an on-screen note) while the
+numbers use the full selected depth; the litter COI is computed over the entire
+pedigree regardless of the selector.
 
 **Analysis.**
 
@@ -596,7 +603,8 @@ The product is in good shape when, on the target Mac:
 **Hypothetical Mating (§6.8):**
 
 ```
-[ ] Pick an existing dam and sire; the tab shows a projected 3–10 gen pedigree of the offspring.
+[ ] Pick an existing dam and sire; the tab shows a projected pedigree (analysis 3–10 gens;
+    the drawn bracket is capped at 8 gens for legibility, with a note when it is capped).
 [ ] Common ancestors on both sides are highlighted / colour-coded.
 [ ] Litter COI and AVK are shown (computed in-app, labelled estimates).
 [ ] A recognised line-breeding pattern (Appendix C) is noted, with cross notation as in Linebreeding.
@@ -677,6 +685,7 @@ end-to-end layer is intended, not yet built.
 
 ## Приложение A. История изменений (changelog)
 
+- "2026-07-26 (v1.8) — Hypothetical Mating: the projected-pedigree CHART is capped at 8 generations for legibility (the Pedigree tab's own max) (a deeper expand-all bracket is unreadable and cannot export to one page); the selected 3–10 depth still drives litter COI/AVK and the common-ancestor analysis, and the litter COI is computed over the full pedigree regardless (§5/§6.8/§11)."
 - "2026-07-25 (v1.8) — New feature **Hypothetical Mating** (planning tab): projected pedigree of a selected existing dam × sire, litter COI/AVK, highlighted common ancestors, line-breeding classification vs the owner-provided 8-method reference (Appendix C), sex/age warnings (dam 1–8, sire 1–12, warn-only), PDF/PNG export, no DB writes. Requirements §1/§5/§6.8/§11/Appendix C; intake + change spec in the WCR change section (§1, §5, §6.8, §9, §11)."
 - "2026-07-25 (v1.7) — Doc restructure: тело — только требования; полный changelog → это Приложение A; §8 implementation detail → Приложение B + companion-указатели; добавлен Entry-Point Contract role block."
 - "2026-07-20 (v1.6) — App v1.2.0: the **PedigreeTree bracket tab is REPLACED by an Indented Tree report** — a BreedMate-style indented TEXT pedigree (subject at the left margin, sire block above / dam block below, 4-col indent per generation with `|` connectors; nodes labelled G0/G1/G2… · Name · Reg · DOB; summary header Sex/DOB/COI/AVK). Depth selector **5 / 10 / 20** (was 4–8). Uses DE-DUP traversal (each ancestor expanded once, repeats flagged `[repeat]`) at a raised cap `PEDIGREE_TREE_MAX_GENERATIONS = 20`, so a deep line-bred tree stays bounded as text. New **TXT** export in the Save… menu writes the on-screen text byte-identically. Pedigree, Linebreeding, Foundation tabs unchanged. Additive code: new `src/lib/indentedTree.ts`, `components/IndentedTree.tsx`, IPC `db:getPedigreeTree` + `file:saveText`; no pre-existing test changed (§1, §5, §6.3, §6.7, §7.2, §7.3, §11, §12)."

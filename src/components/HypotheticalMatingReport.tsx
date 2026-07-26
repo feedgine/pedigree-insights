@@ -74,6 +74,12 @@ export default function HypotheticalMatingReport({
         )}
       </div>
 
+      {report.chartGenerations < report.generations && (
+        <div className="hm-chart-note">
+          Chart shows the first {report.chartGenerations} generations for legibility; litter
+          COI/AVK and the common-ancestor analysis use all {report.generations} generations.
+        </div>
+      )}
       <div className="hm-report__chart">
         <PedigreeTable tree={report.tree} variant="pedigree" />
       </div>
@@ -82,7 +88,7 @@ export default function HypotheticalMatingReport({
         {report.commonAncestors.length > 0 && (
           <div className="hm-commons">
             <span className="hm-commons__label">
-              Common ancestors (highlighted in the chart, ranked by Blood %):
+              Common ancestors (ranked by Blood %; highlighted in the chart where within its depth):
             </span>
             <ul className="hm-commons__list">
               {report.commonAncestors.map((a) => (
