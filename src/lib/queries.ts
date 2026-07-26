@@ -39,6 +39,10 @@ const PROJECTION: ProjectionField[] = [
   // Genetics columns vary by export; pick whichever exists, else NULL.
   { as: 'coi', sources: ['Inbreeding Coefficient', 'COI'] },
   { as: 'avk', sources: ['Relationship Coefficient', 'AVK'] },
+  // Optional DNA health-test columns (recessive). Used by the Hypothetical Mating
+  // carrier check + parent display; absent columns degrade to NULL (never error).
+  { as: 'praRcd4C2orf71', sources: ['PRA-rcd4-C2orf71'] },
+  { as: 'samsKcnj10', sources: ['SAMS-KCNJ10'] },
 ];
 
 /** Columns without which the app cannot build a pedigree at all. If any is

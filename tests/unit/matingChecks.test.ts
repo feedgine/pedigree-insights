@@ -2,7 +2,7 @@
 // "as of" date is injected, never read from the clock.
 import { describe, it, expect } from 'vitest';
 import type { Animal } from '@/lib/schema';
-import { parseDob, ageYears, checkMating } from '@/lib/matingChecks';
+import { parseDob, ageYears, checkMating, dnaStatus } from '@/lib/matingChecks';
 
 function animal(name: string, sex: Animal['sex'], dob: string | null): Animal {
   return {
@@ -62,5 +62,62 @@ describe('checkMating (warn-only, never blocks)', () => {
 
   it('never throws on null parents', () => {
     expect(checkMating(null, null, ASOF)).toEqual([]);
+  });
+});
+
+describe('dnaStatus', () => {
+  it('recognises words and genotype pairs; unknown otherwise', () => {
+    expect(dnaStatus('Clear')).toBe('clear');
+    expect(dnaStatus('Normal')).toBe('clear');
+    expect(dnaStatus('Carrier')).toBe('carrier');
+    expect(dnaStatus('Affected')).toBe('affected');
+    expect(dnaStatus('At-risk')).toBe('affected');
+    expect(dnaStatus('N/N')).toBe('clear');
+    expect(dnaStatus('N/rcd4')).toBe('carrier');
+    expect(dnaStatus('rcd4/rcd4')).toBe('affected');
+    expect(dnaStatus('')).toBe('unknown');
+    expect(dnaStatus(null)).toBe('unknown');
+    expect(dnaStatus('pending')).toBe('unknown');
+  });
+});
+
+describe('checkMating - recessive DNA carrier check', () => {
+  const withDna = (name: string, sex: Animal['sex'], dna: Partial<Animal>): Animal => ({
+    ...animal(name, sex, '2022-01-01'),
+    ...dna,
+  });
+  it('warns when both parents are carriers of the same marker (~25% affected)', () => {
+    const w = checkMating(
+      withDna('Dam', 'F', { praRcd4C2orf71: 'Carrier' }),
+      withDna('Sire', 'M', { praRcd4C2orf71: 'Carrier' }),
+      ASOF,
+    );
+    const health = w.filter((x) => x.kind === 'health');
+    expect(health).toHaveLength(1);
+    expect(health[0].message).toMatch(/25%/);
+  });
+  it('warns Affected x Carrier as ~50% affected', () => {
+    const w = checkMating(
+      withDna('Dam', 'F', { samsKcnj10: 'Affected' }),
+      withDna('Sire', 'M', { samsKcnj10: 'Carrier' }),
+      ASOF,
+    );
+    expect(w.some((x) => x.kind === 'health' && /50%/.test(x.message))).toBe(true);
+  });
+  it('does NOT warn for carrier x clear (no affected risk)', () => {
+    const w = checkMating(
+      withDna('Dam', 'F', { praRcd4C2orf71: 'Carrier' }),
+      withDna('Sire', 'M', { praRcd4C2orf71: 'Clear' }),
+      ASOF,
+    );
+    expect(w.some((x) => x.kind === 'health')).toBe(false);
+  });
+  it('does NOT warn when a result is missing/unknown', () => {
+    const w = checkMating(
+      withDna('Dam', 'F', { praRcd4C2orf71: 'Carrier' }),
+      withDna('Sire', 'M', {}),
+      ASOF,
+    );
+    expect(w.some((x) => x.kind === 'health')).toBe(false);
   });
 });

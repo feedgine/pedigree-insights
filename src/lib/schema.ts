@@ -33,6 +33,12 @@ export interface Animal {
   coi: number | null;
   /** Pedigree."Relationship Coefficient" — AVK. NULL until external script runs. */
   avk: number | null;
+  /** Pedigree."PRA-rcd4-C2orf71" — recessive DNA test result (e.g. Clear/Carrier/
+   *  Affected or N/N,N/m,m/m). Optional: undefined/null when untested or the
+   *  column is absent. Text, shown verbatim; never a coefficient. */
+  praRcd4C2orf71?: string | null;
+  /** Pedigree."SAMS-KCNJ10" — recessive DNA test result. Optional, as above. */
+  samsKcnj10?: string | null;
 }
 
 /**
@@ -52,6 +58,8 @@ export interface AnimalRow {
   breed: string | null;
   coi: number | null;
   avk: number | null;
+  praRcd4C2orf71?: string | null;
+  samsKcnj10?: string | null;
 }
 
 /**
@@ -99,6 +107,9 @@ export function toAnimal(row: AnimalRow): Animal {
     // @author Yuliya Malinina <julia.malinina@gmail.com> — scale decision, 2026-07-20
     coi: row.coi,
     avk: row.avk,
+    // Optional DNA health-test results — text, passed through verbatim.
+    praRcd4C2orf71: row.praRcd4C2orf71,
+    samsKcnj10: row.samsKcnj10,
   };
 }
 

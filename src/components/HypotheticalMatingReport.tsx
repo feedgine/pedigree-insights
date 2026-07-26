@@ -81,7 +81,7 @@ export default function HypotheticalMatingReport({
         </div>
       )}
       <div className="hm-report__chart">
-        <PedigreeTable tree={report.tree} variant="pedigree" />
+        <PedigreeTable tree={report.tree} variant="pedigree" parentHealth />
       </div>
 
       <div className="hm-report__analysis">

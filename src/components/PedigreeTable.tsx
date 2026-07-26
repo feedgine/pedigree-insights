@@ -81,10 +81,12 @@ function Cell({
   cell,
   variant,
   colors,
+  parentHealth = false,
 }: {
   cell: GridCell;
   variant: PedigreeVariant;
   colors: Map<string, string>;
+  parentHealth?: boolean;
 }): React.ReactElement {
   const { node } = cell;
 
@@ -117,6 +119,15 @@ function Cell({
   const tint = colors.get(a.name.trim().toLowerCase());
   if (tint) style.background = tint;
 
+  // DNA health markers (Hypothetical Mating only): shown on the parent cells.
+  const healthLine = [
+    a.praRcd4C2orf71?.trim() ? `PRA ${a.praRcd4C2orf71.trim()}` : '',
+    a.samsKcnj10?.trim() ? `SAMS ${a.samsKcnj10.trim()}` : '',
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  const showHealth = parentHealth && node.generation === 1 && healthLine !== '';
+
   return (
     <div className={`ptcell${tint ? ' ptcell--lined' : ''}`} style={style}>
       {/* Titles render small & muted on their own line(s); the Name always
@@ -138,6 +149,7 @@ function Cell({
         <>
           {a.registration && <div className="ptcell__meta">Reg {a.registration}</div>}
           {a.dob && <div className="ptcell__meta">{a.dob.slice(0, 10)}</div>}
+          {showHealth && <div className="ptcell__meta ptcell__health">{healthLine}</div>}
         </>
       ) : (
         <div className="ptcell__meta">
@@ -151,9 +163,11 @@ function Cell({
 export default function PedigreeTable({
   tree,
   variant = 'pedigree',
+  parentHealth = false,
 }: {
   tree: PedigreeTreeNode;
   variant?: PedigreeVariant;
+  parentHealth?: boolean;
 }): React.ReactElement {
   const { cells, depth } = useMemo(() => {
     const d = maxDepth(tree);
@@ -191,7 +205,7 @@ export default function PedigreeTable({
         </div>
         <div className="pttable__grid" style={gridStyle}>
           {ancestorCells.map((c) => (
-            <Cell key={c.key} cell={c} variant={variant} colors={colors} />
+            <Cell key={c.key} cell={c} variant={variant} colors={colors} parentHealth={parentHealth} />
           ))}
         </div>
       </div>

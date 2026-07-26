@@ -141,7 +141,9 @@ analysis use the full selected 3–10 depth. Details: `docs/hypothetical-mating.
   `pretest`). Run on the target Mac.
 - Typecheck: `npx tsc --noEmit`. Build: `npx electron-vite build`; package:
   `npm run dist` (mac arm64).
-- Current status: **114 unit tests + tsc clean** (2026-07-26).
+- **Releasing** (version bump + git tag + push): see `docs/releasing.md`. Use
+  `npm run release:minor` (or `:patch` / `:major`); never hand-edit the version.
+- Current status: **116 unit tests + tsc clean** (2026-07-26).
 
 ## 8. Environment gotchas (when editing from a cloud/bridge sandbox)
 

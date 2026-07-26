@@ -194,6 +194,11 @@ export default function App(): React.ReactElement {
       <header className="topbar">
         <span className="topbar__brand">PedigreeInsights</span>
         <span className="topbar__ver" title="app version">v{__APP_VERSION__}</span>
+        {__APP_BUILD__ && __APP_BUILD__ !== `v${__APP_VERSION__}` && (
+          <span className="topbar__build" title="git build — development / uncommitted work">
+            {__APP_BUILD__}
+          </span>
+        )}
         <span className="topbar__db">
           DB: {dbStatus.fileName} <span className="pill">read-only</span>
         </span>

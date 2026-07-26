@@ -88,6 +88,18 @@ pane is rendered exactly like the Pedigree tab (definite-height box, self-scroll
 `.pttable`) so its one-page PDF/PNG export is identical. For deep
 line-breeding detail, the Linebreeding tab goes to 20.
 
+## Recessive DNA health markers (optional)
+
+Two optional recessive DNA-test columns are read when present — `PRA-rcd4-C2orf71`
+and `SAMS-KCNJ10` (added to the source contract in `queries.ts`; text, verbatim;
+absent → ignored, like COI/AVK). In the projected chart the sire's and dam's values
+are shown on their cells (`PedigreeTable` `parentHealth` prop, generation-1 cells
+only — Hypothetical Mating only, not the Pedigree tab). `matingChecks.ts` adds a
+**warn-only** recessive carrier check (`dnaStatus` + `RECESSIVE_MARKERS`):
+carrier×carrier ⇒ ~25% affected, affected×carrier ⇒ ~50%, affected×clear ⇒ all
+carriers; unreadable/absent → no warning. Add more tests by extending
+`RECESSIVE_MARKERS` and the `queries.ts` projection.
+
 ## Open items
 
 - **Q-HM-1** — precedence when several patterns match: currently all are surfaced

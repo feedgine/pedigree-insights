@@ -1,7 +1,7 @@
 ---
 title: PedigreeInsights Product Requirements (PRD)
 type: Product Requirements Document
-version: "1.8"
+version: "1.9"
 status: DRAFT — requires Yuliya's review
 updated: 2026-07-26
 license: MIT
@@ -392,6 +392,13 @@ animal is outside its breeding-age window (**dam 1–8 years, sire 1–12 years*
 measured as of today. Missing `Sex` or `DOB` is treated as **"unknown"** and raises
 no warning for that field.
 
+**Recessive DNA health tests (warn-only).** When BOTH parents have a readable
+result for an optional health-test column (currently `PRA-rcd4-C2orf71` and
+`SAMS-KCNJ10`), a note flags the litter's recessive-inheritance risk — **carrier ×
+carrier ⇒ ~25% affected**, affected × carrier ⇒ ~50%, affected × clear ⇒ every
+puppy a carrier; unreadable or absent results raise no warning. The sire's and
+dam's marker values are shown on their cells in the projected pedigree chart.
+
 **Export.** The projected pedigree exports to **PDF or PNG** (as in §6.7). **No
 record is ever added to the database.**
 
@@ -499,7 +506,9 @@ persisted to config and reused on later launches, surviving the file being moved
   columns `COI` / `AVK` (or BreedMate's `Inbreeding Coefficient` /
   `Relationship Coefficient`). Stored genetics are shown only on the Pedigree
   chart and in the Indented Tree header; the analytical reports recompute and
-  ignore them (§7.3).
+  ignore them (§7.3). Optional **DNA health-test** columns `PRA-rcd4-C2orf71` and
+  `SAMS-KCNJ10` are read when present (text, shown verbatim) and drive the
+  Hypothetical Mating parent display + carrier check (§6.8); absent → ignored.
 
   *Not yet generalised (roadmap §9):* the table name `Pedigree` and the column
   names above are currently fixed; a database using different table/column names
@@ -610,6 +619,9 @@ The product is in good shape when, on the target Mac:
 [ ] A recognised line-breeding pattern (Appendix C) is noted, with cross notation as in Linebreeding.
 [ ] Sex mismatch or out-of-age-window (dam 1–8, sire 1–12) shows a WARNING but still builds the preview.
 [ ] Missing Sex/DOB is treated as "unknown" (no false warning); never blocks.
+[ ] When both parents have a readable DNA result (e.g. PRA-rcd4-C2orf71 / SAMS-KCNJ10),
+    a carrier×carrier (or Affected) recessive-risk WARNING shows; unreadable/absent → none.
+[ ] The sire and dam DNA marker values appear on their cells in the projected chart.
 [ ] Save… exports the projected pedigree to PDF/PNG; NO record is written to the .db.
 ```
 
@@ -685,6 +697,7 @@ end-to-end layer is intended, not yet built.
 
 ## Приложение A. История изменений (changelog)
 
+- "2026-07-26 (v1.9) — Hypothetical Mating gains optional recessive DNA health-test columns (PRA-rcd4-C2orf71, SAMS-KCNJ10): the sire's/dam's results are shown on their cells in the projected chart, and a warn-only carrier×carrier (and Affected) recessive-risk check is added; absent/unreadable results never warn. Optional source-contract columns (§6.8/§8/§11)."
 - "2026-07-26 (v1.8) — Hypothetical Mating: the projected-pedigree CHART is capped at 8 generations for legibility (the Pedigree tab's own max) (a deeper expand-all bracket is unreadable and cannot export to one page); the selected 3–10 depth still drives litter COI/AVK and the common-ancestor analysis, and the litter COI is computed over the full pedigree regardless (§5/§6.8/§11)."
 - "2026-07-25 (v1.8) — New feature **Hypothetical Mating** (planning tab): projected pedigree of a selected existing dam × sire, litter COI/AVK, highlighted common ancestors, line-breeding classification vs the owner-provided 8-method reference (Appendix C), sex/age warnings (dam 1–8, sire 1–12, warn-only), PDF/PNG export, no DB writes. Requirements §1/§5/§6.8/§11/Appendix C; intake + change spec in the WCR change section (§1, §5, §6.8, §9, §11)."
 - "2026-07-25 (v1.7) — Doc restructure: тело — только требования; полный changelog → это Приложение A; §8 implementation detail → Приложение B + companion-указатели; добавлен Entry-Point Contract role block."

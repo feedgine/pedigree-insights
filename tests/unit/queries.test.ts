@@ -45,6 +45,15 @@ describe('buildSelectCols — genetics column variation', () => {
     expect(sql).toContain('"Sex" AS sexRaw');
     expect(sql).toContain('"Breed" AS breed');
   });
+
+  it('projects optional DNA health columns when present, NULL otherwise', () => {
+    const withDna = buildSelectCols(new Set([...CORE, 'PRA-rcd4-C2orf71', 'SAMS-KCNJ10']));
+    expect(withDna).toContain('"PRA-rcd4-C2orf71" AS praRcd4C2orf71');
+    expect(withDna).toContain('"SAMS-KCNJ10" AS samsKcnj10');
+    const without = buildSelectCols(new Set(CORE));
+    expect(without).toContain('NULL AS praRcd4C2orf71');
+    expect(without).toContain('NULL AS samsKcnj10');
+  });
 });
 
 describe('missingRequiredColumns', () => {

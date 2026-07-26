@@ -148,3 +148,14 @@ describe('projected chart is capped for legibility (analysis keeps full depth)',
     expect(r.chartGenerations).toBe(5);
   });
 });
+
+describe('recessive DNA carrier warning flows through the report', () => {
+  it('flags a carrier x carrier mating', () => {
+    const lookup = makeLookup([
+      { ...animal('SI', null, null, 'M'), praRcd4C2orf71: 'Carrier' },
+      { ...animal('DA', null, null, 'F'), praRcd4C2orf71: 'Carrier' },
+    ]);
+    const r = buildHypotheticalMating(lookup, 'SI', 'DA', 5, ASOF);
+    expect(r.warnings.some((w) => w.kind === 'health' && /25%/.test(w.message))).toBe(true);
+  });
+});
