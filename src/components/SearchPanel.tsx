@@ -1,14 +1,27 @@
 // SearchPanel.tsx — Screen 3 (PRD §6.2). "Look up a dog by name" — the minimum
 // supporting capability for v1.0. Debounced name/registration search over the
 // IPC API; selecting a result loads its pedigree chart.
+//
+// Reusable: the Hypothetical Mating tab (PRD §6.8) mounts two of these to pick a
+// dam and a sire, so `placeholder` and `autoFocus` are overridable (defaults keep
+// the original single-search behaviour unchanged).
 import React, { useEffect, useRef, useState } from 'react';
 import type { Animal } from '@/lib/schema';
 
 interface Props {
   onSelect: (name: string) => void;
+  /** Input placeholder; defaults to the original single-lookup wording. */
+  placeholder?: string;
+  /** Whether the input grabs focus on mount (default true). Set false for the
+   *  second of two side-by-side pickers so they don't fight over focus. */
+  autoFocus?: boolean;
 }
 
-export default function SearchPanel({ onSelect }: Props): React.ReactElement {
+export default function SearchPanel({
+  onSelect,
+  placeholder = 'Look up dog by name…',
+  autoFocus = true,
+}: Props): React.ReactElement {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Animal[]>([]);
   const [loading, setLoading] = useState(false);
@@ -37,9 +50,9 @@ export default function SearchPanel({ onSelect }: Props): React.ReactElement {
       <input
         className="search__input"
         type="search"
-        placeholder="Look up dog by name…"
+        placeholder={placeholder}
         value={query}
-        autoFocus
+        autoFocus={autoFocus}
         onChange={(e) => setQuery(e.target.value)}
       />
       {query.trim().length >= 2 && (

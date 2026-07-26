@@ -18,6 +18,8 @@ const api: PedigreeApi = {
   getLinebreeding: (name, generations, minCrosses) =>
     ipcRenderer.invoke(IPC.getLinebreeding, name, generations, minCrosses),
   getFoundation: (name) => ipcRenderer.invoke(IPC.getFoundation, name),
+  getHypotheticalMating: (sireName, damName, generations) =>
+    ipcRenderer.invoke(IPC.getHypotheticalMating, sireName, damName, generations),
   importFoundation: () => ipcRenderer.invoke(IPC.importFoundation),
   clearFoundation: () => ipcRenderer.invoke(IPC.clearFoundation),
   getConfig: () => ipcRenderer.invoke(IPC.getConfig),

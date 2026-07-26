@@ -7,6 +7,7 @@ import type { Animal } from './schema';
 import type { PedigreeTreeNode } from './pedigreeAlgorithm';
 import type { LinebreedingReport } from './linebreeding';
 import type { FoundationReport } from './contribution';
+import type { HypotheticalMatingReport } from './hypotheticalMating';
 
 export const IPC = {
   pickDatabase: 'db:pick',
@@ -17,6 +18,7 @@ export const IPC = {
   getPedigreeTree: 'db:getPedigreeTree',
   getLinebreeding: 'db:getLinebreeding',
   getFoundation: 'db:getFoundation',
+  getHypotheticalMating: 'db:getHypotheticalMating',
   importFoundation: 'foundation:import',
   clearFoundation: 'foundation:clear',
   getConfig: 'config:get',
@@ -102,6 +104,14 @@ export interface PedigreeApi {
   /** Foundation-contribution report for a Name, using the saved foundation list
    *  (computed across all generations). Null if no DB is open. */
   getFoundation(name: string): Promise<FoundationReport | null>;
+  /** Project a planned dam × sire litter: pedigree, litter COI/AVK, common
+   *  ancestors, line-breeding classification and warn-only checks. Read-only —
+   *  nothing is written to the database. Null if no DB is open. */
+  getHypotheticalMating(
+    sireName: string,
+    damName: string,
+    generations: number,
+  ): Promise<HypotheticalMatingReport | null>;
   /** Open a file picker, parse a foundation-dog list, save it, and report how
    *  many names matched the database. */
   importFoundation(): Promise<FoundationImportResult>;

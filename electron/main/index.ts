@@ -32,6 +32,7 @@ import {
   clampGenerations,
 } from '../../src/lib/pedigreeAlgorithm';
 import { parseFoundationList } from '../../src/lib/contribution';
+import { clampMatingGenerations } from '../../src/lib/hypotheticalMating';
 
 let win: BrowserWindow | null = null;
 let database: PedigreeDatabase | null = null;
@@ -195,6 +196,19 @@ function registerIpc(): void {
       database!.getFoundation(n, foundationNames)
     );
   });
+
+  ipcMain.handle(
+    IPC.getHypotheticalMating,
+    (_e, sireName: unknown, damName: unknown, generations: unknown) => {
+      if (!database) return null;
+      const s = reqNonEmptyString(sireName, 'sireName');
+      const d = reqNonEmptyString(damName, 'damName');
+      const gens = clampMatingGenerations(reqNumber(generations, 'generations'));
+      return timed(`getHypotheticalMating(${gens}g)`, () =>
+        database!.getHypotheticalMating(s, d, gens)
+      );
+    }
+  );
 
   ipcMain.handle(IPC.importFoundation, async (): Promise<FoundationImportResult> => {
     const result = await dialog.showOpenDialog(win!, {

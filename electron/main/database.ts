@@ -33,6 +33,10 @@ import {
   buildFoundationReport,
 } from '../../src/lib/contribution';
 import { applyGenetics } from '../../src/lib/genetics';
+import {
+  HypotheticalMatingReport,
+  buildHypotheticalMating,
+} from '../../src/lib/hypotheticalMating';
 
 export class PedigreeDatabase {
   private db: Database.Database;
@@ -144,6 +148,18 @@ export class PedigreeDatabase {
    *  computed across all generations (memoized DP — see contribution.ts). */
   getFoundation(name: string, foundationNames: string[]): FoundationReport {
     return buildFoundationReport(this.lookup, name, foundationNames);
+  }
+
+  /** Project a planned dam × sire litter (PRD §6.8). Reuses the pedigree
+   *  traversal + validated genetics on a virtual offspring; the litter's COI is
+   *  the coancestry of the two parents. `asOf` = now for the warn-only age
+   *  checks. Read-only — nothing is written to the database. */
+  getHypotheticalMating(
+    sireName: string,
+    damName: string,
+    generations: number,
+  ): HypotheticalMatingReport {
+    return buildHypotheticalMating(this.lookup, sireName, damName, generations, new Date());
   }
 
   /** Whether a Name exists in the database (used to validate a foundation list).

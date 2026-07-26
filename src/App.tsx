@@ -12,6 +12,11 @@ import {
   DEFAULT_GENERATIONS,
   LINEBREEDING_MAX_GENERATIONS,
 } from '@/lib/pedigreeAlgorithm';
+import {
+  DEFAULT_HYPOTHETICAL_MATING_GENERATIONS,
+  HYPOTHETICAL_MATING_MIN_GENERATIONS,
+  HYPOTHETICAL_MATING_MAX_GENERATIONS,
+} from '@/lib/hypotheticalMating';
 import { exportChartPdf, exportChartPng } from '@/lib/chartExport';
 import FirstRun from './components/FirstRun';
 import SaveMenu, { type SaveFormat } from './components/SaveMenu';
@@ -20,14 +25,16 @@ import PedigreeView from './components/PedigreeView';
 import IndentedTreeView from './components/IndentedTreeView';
 import LinebreedingView from './components/LinebreedingView';
 import FoundationView from './components/FoundationView';
+import HypotheticalMatingView from './components/HypotheticalMatingView';
 
-type View = 'pedigree' | 'tree' | 'linebreeding' | 'foundation';
+type View = 'pedigree' | 'tree' | 'linebreeding' | 'foundation' | 'mating';
 
 const TABS: { id: View; label: string }[] = [
   { id: 'pedigree', label: 'Pedigree' },
   { id: 'tree', label: 'Indented Tree' },
   { id: 'linebreeding', label: 'Linebreeding' },
   { id: 'foundation', label: 'Foundation' },
+  { id: 'mating', label: 'Hypothetical Mating' },
 ];
 
 const CHART_MIN_GENERATIONS = 4;
@@ -39,6 +46,10 @@ const CHART_DEPTHS = Array.from(
 const clampChart = (n: number) =>
   Math.min(CHART_MAX_GENERATIONS, Math.max(CHART_MIN_GENERATIONS, n));
 const LB_DEPTHS = Array.from({ length: LINEBREEDING_MAX_GENERATIONS - 3 }, (_, i) => i + 4); // 4..20
+const MATING_DEPTHS = Array.from(
+  { length: HYPOTHETICAL_MATING_MAX_GENERATIONS - HYPOTHETICAL_MATING_MIN_GENERATIONS + 1 },
+  (_, i) => i + HYPOTHETICAL_MATING_MIN_GENERATIONS,
+); // 3..10
 
 /** Depths offered for the indented text pedigree (spec: 5 / 10 / 20 gens). */
 const TREE_DEPTHS = [5, 10, 20] as const;
@@ -55,6 +66,9 @@ export default function App(): React.ReactElement {
   const [chartGenerations, setChartGenerations] = useState(clampChart(DEFAULT_GENERATIONS));
   const [treeGenerations, setTreeGenerations] = useState<number>(DEFAULT_TREE_GENERATIONS);
   const [lbGenerations, setLbGenerations] = useState(6);
+  const [matingGenerations, setMatingGenerations] = useState<number>(
+    DEFAULT_HYPOTHETICAL_MATING_GENERATIONS,
+  );
 
   // Whether the active view currently has exportable content (each view reports
   // this up); drives the Save button's enabled state.
@@ -68,6 +82,9 @@ export default function App(): React.ReactElement {
   const [treeText, setTreeText] = useState('');
 
   const isChart = view === 'pedigree';
+  // The Pedigree and Hypothetical Mating tabs both render a bracket chart
+  // (.pttable), so they share the landscape one-page PDF + full-res PNG export.
+  const isBracket = view === 'pedigree' || view === 'mating';
 
   useEffect(() => {
     window.api.getStatus().then(setDbStatus, () => setDbStatus(null));
@@ -111,8 +128,8 @@ export default function App(): React.ReactElement {
   );
 
   const onPrint = useCallback(
-    () => runExport((o) => exportChartPdf({ landscape: isChart, ...o })),
-    [runExport, isChart]
+    () => runExport((o) => exportChartPdf({ landscape: isBracket, ...o })),
+    [runExport, isBracket]
   );
   const onSavePng = useCallback(() => runExport((o) => exportChartPng(o)), [runExport]);
 
@@ -139,14 +156,14 @@ export default function App(): React.ReactElement {
     {
       id: 'pdf',
       label: 'PDF',
-      hint: isChart
+      hint: isBracket
         ? 'A4 / A3 · one page'
         : view === 'tree'
           ? 'A4 portrait · text'
           : 'A4 portrait',
       run: onPrint,
     },
-    ...(isChart
+    ...(isBracket
       ? [{ id: 'png', label: 'PNG', hint: 'whole chart · one image', run: onSavePng }]
       : []),
     ...(view === 'tree'
@@ -236,6 +253,17 @@ export default function App(): React.ReactElement {
         {view === 'foundation' && (
           <span className="depth depth__range">All generations</span>
         )}
+        {view === 'mating' && (
+          <label className="depth">
+            Generations:
+            <select value={matingGenerations} onChange={(e) => setMatingGenerations(Number(e.target.value))}>
+              {MATING_DEPTHS.map((n) => (
+                <option key={n} value={n}>{n}</option>
+              ))}
+            </select>
+            <span className="depth__range">({HYPOTHETICAL_MATING_MIN_GENERATIONS}–{HYPOTHETICAL_MATING_MAX_GENERATIONS})</span>
+          </label>
+        )}
 
         <SaveMenu formats={saveFormats} disabled={!contentReady} busy={exporting} />
         {exportMsg && (
@@ -246,7 +274,7 @@ export default function App(): React.ReactElement {
       </div>
 
       <main className="stage">
-        {!subjectName && view !== 'foundation' && (
+        {!subjectName && view !== 'foundation' && view !== 'mating' && (
           <div className="empty-stage">
             Look up a dog by name to view its{' '}
             {view === 'linebreeding' ? 'linebreeding report' : 'pedigree'}.
@@ -280,6 +308,10 @@ export default function App(): React.ReactElement {
 
         {view === 'foundation' && (
           <FoundationView subjectName={subjectName} onReady={setContentReady} />
+        )}
+
+        {view === 'mating' && (
+          <HypotheticalMatingView generations={matingGenerations} onReady={setContentReady} />
         )}
       </main>
     </div>
