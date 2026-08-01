@@ -1,6 +1,6 @@
 # PedigreeInsights
 
-A free, open-source (MIT) **macOS** desktop **pedigree-database analysis tool**. It is **source-agnostic**: it reads any **SQLite** file that exposes a pedigree table in the expected shape (see [Database requirements](#database-requirements)). [BreedMate](https://www.breedmate.com/) exports are the primary, fully-tested format — BreedMate is Windows-only, so a Mac-based breeder can open their existing BreedMate SQLite file and study any animal's ancestry across four reports — a pedigree bracket chart, an indented text pedigree (exportable to `.txt`), line-breeding, and foundation contribution — with no Windows machine required.
+A free, open-source (MIT) **macOS** desktop **pedigree-database analysis tool**. It is **source-agnostic**: it reads any **SQLite** file that exposes a pedigree table in the expected shape (see [Database requirements](#database-requirements)). [BreedMate](https://www.breedmate.com/) exports are the primary, fully-tested format — BreedMate is Windows-only, so a Mac-based breeder can open their existing BreedMate SQLite file and study any animal's ancestry across four reports — a pedigree bracket chart, an indented text pedigree (exportable to `.txt`), line-breeding, and foundation contribution — plus a **Hypothetical Mating** litter planner, with no Windows machine required.
 
 PedigreeInsights is **read-only**. The source database remains the source of truth for all data entry; PedigreeInsights never modifies the file.
 
@@ -8,15 +8,16 @@ PedigreeInsights is **read-only**. The source database remains the source of tru
 
 - Point the app at any pedigree SQLite database (e.g. a BreedMate `.db`) via a native file picker; the path is remembered.
 - Look up a dog by name (or registration number).
-- Four report tabs:
+- Five tabs (four reports + a litter planner):
   - **Pedigree** — bracket chart showing Titles · Name · DOB · Reg.
   - **Indented Tree** — a BreedMate-style **indented text pedigree** (the "Family Tree" layout): the subject at the left margin, sire block above and dam block below, indenting one level per generation with `|` connectors. Each node is labelled with its generation (G0 = subject, G1, G2 …), Name, Registration and DOB; the header summarises Sex, DOB, COI and AVK. Line-bred ancestors are expanded once and later occurrences flagged `[repeat]`; unknown ancestors show as bare slots. **5 / 10 / 20 generations** (selector). Exportable to **.txt** (see Export) — what you see on screen is byte-identical to the saved file.
   - **Linebreeding** — ancestors appearing more than once across the sire and dam sides, with the generation/line of every cross; 4–20 generations. Columns mirror PedigreeOnline: Crosses, Lines (sire/dam split), **Blood %** (Wright's ½^generation contribution), **Influence** (the equivalent cross pair), **AGR** (additive genetic relationship to the subject) and **COI** (each ancestor's own inbreeding). Rows are ranked by Blood % to surface the **top influencers**.
   - **Foundation** — import a list of foundation dogs; for any chosen dog, see each foundation's presence and genetic contribution across all generations.
-- Generation depth: **Pedigree** bracket chart 4–8; **Indented Tree** 5 / 10 / 20; **Linebreeding** 4–20; **Foundation** runs across all generations.
+  - **Hypothetical Mating** — plan a litter: pick an existing sire and dam and preview the projected pedigree of their potential offspring, with litter COI/AVK, colour-coded common ancestors, an 8-method line-breeding classification, and **warn-only** checks (sex mismatch; breeding-age windows; and recessive DNA-test carrier risk when the database has health-marker columns). Nothing is written to the database.
+- Generation depth: **Pedigree** bracket chart 4–8; **Indented Tree** 5 / 10 / 20; **Linebreeding** 4–20; **Foundation** all generations; **Hypothetical Mating** 3–10 (projected chart capped at 8 for legibility).
 - **Export** any report with **Save…**: a single-page **PDF** (A4, or A3 landscape for a deep chart); for the bracket chart, a full-resolution **PNG** of the whole tree with no page limit; for the Indented Tree, a plain-text **.txt** file.
 - Robust on imperfect data: traversal is iterative/cycle-guarded and never hangs; pedigree **cycles** (a dog within its own ancestry) are detected, broken for the math, and **surfaced as a warning** listing the offending dogs so the data can be corrected.
-- The running **version** is shown in the app header (e.g. `v1.3.0`), read from `package.json` at build time.
+- The running **version** is shown in the app header (e.g. `v1.5.0`), read from `package.json` at build time; during development a git build marker (`git describe`) appears alongside it so a dev build is never mistaken for a release.
 - Read-only: BreedMate stays the source of truth; the `.db` is never modified.
 
 ## Database requirements
@@ -33,6 +34,7 @@ Any **SQLite** database works, provided it contains a pedigree table in this sha
 
 - `Sex`, `DOB`, `Registration`, `PreTitle`, `PostTitle`, `Color`, `Breed`. (`Registration` is also used by search-by-registration.)
 - `COI` / `AVK` — stored genetics values (BreedMate's long names `Inbreeding Coefficient` / `Relationship Coefficient` are also accepted). How these are used depends on the report — see [Genetics](#genetics).
+- `PRA-rcd4-C2orf71` / `SAMS-KCNJ10` — optional recessive DNA-test results (text). When present, the Hypothetical Mating tool shows the sire's/dam's values on the projected chart and warns on carrier×carrier (or affected) risk; absent → ignored.
 
 If a database lacks the mandatory columns, the app reports a clear error rather than a cryptic SQLite failure.
 
@@ -40,7 +42,7 @@ If a database lacks the mandatory columns, the app reports a clear error rather 
 
 The two **analytical** reports compute their own validated figures and **ignore any stored values**; the two **bracket-chart** views display the source data **as-is**.
 
-- **Linebreeding** and **Foundation** reports — COI, AGR, AVK and Blood %/contribution are **always computed in-app** (`src/lib/genetics.ts` / `contribution.ts`); any `COI`/`AVK`/`AGR` stored in the database is **ignored and recalculated**. (The stored COI in real exports proved unreliable, so these reports never depend on it.)
+- **Linebreeding** and **Foundation** reports — COI, AGR, AVK and Blood %/contribution are **always computed in-app** (`src/lib/genetics.ts` / `contribution.ts`); any `COI`/`AVK`/`AGR` stored in the database is **ignored and recalculated**, so the figures stay consistent regardless of what a given file happens to store.
   - **COI** — Meuwissen & Luo (1992), iterative, scalable to large/deep pedigrees.
   - **AGR** (subject ↔ ancestor) — Colleau's (2002) indirect method.
   - **AVK** (ancestor-loss) — distinct ÷ possible ancestors, **BigInt** denominator so 100+ generations never overflow.
