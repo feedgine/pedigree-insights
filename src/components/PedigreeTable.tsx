@@ -15,6 +15,39 @@ import { computeLineColors } from '@/lib/lineColors';
 const ROW_H = 40; // MINIMUM px per leaf row; rows grow to fit content (see grid)
 const COL_W = 210; // px per generation column (fixed, like the Finnish KC layout)
 
+// The deepest (last) column shows the NAME ONLY and is sized to the longest name
+// (+1 character of slack). We measure that width once and apply the SAME explicit
+// px track to BOTH the generation-header grid and the body grid, so the header
+// stays aligned with the column (two independent `max-content` tracks would not).
+// Font must match `.ptcell__main` (700 12.5px) on the app's base family.
+const NAME_FONT = "700 12.5px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+let _measureCtx: CanvasRenderingContext2D | null | undefined;
+function nameMeasureCtx(): CanvasRenderingContext2D | null {
+  if (_measureCtx !== undefined) return _measureCtx;
+  try {
+    const ctx = document.createElement('canvas').getContext('2d');
+    if (ctx) ctx.font = NAME_FONT;
+    _measureCtx = ctx;
+  } catch {
+    _measureCtx = null;
+  }
+  return _measureCtx;
+}
+/** Px width for the name-only last column: longest name + 1 char + cell padding. */
+function lastColumnWidth(names: string[]): number {
+  const PAD = 16; // cell left+right padding (7+7) + 1px right border + slack
+  const ctx = nameMeasureCtx();
+  if (!ctx) {
+    // No canvas (e.g. non-DOM env): rough monospace-ish estimate.
+    const longest = names.reduce((m, n) => Math.max(m, n.length), 0);
+    return Math.ceil((longest + 1) * 7.6) + PAD;
+  }
+  let textW = 0;
+  for (const n of names) textW = Math.max(textW, ctx.measureText(n).width);
+  const oneChar = ctx.measureText('N').width; // "+1 character" of slack
+  return Math.ceil(textW + oneChar) + PAD;
+}
+
 /** Two layouts of the same bracket grid:
  *  - 'pedigree': Titles + Name, with DOB / Reg detail (no COI/AVK).
  *  - 'tree':     Name only (no titles), with COI · AVK detail on every cell. */
@@ -82,11 +115,15 @@ function Cell({
   variant,
   colors,
   parentHealth = false,
+  isLast = false,
 }: {
   cell: GridCell;
   variant: PedigreeVariant;
   colors: Map<string, string>;
   parentHealth?: boolean;
+  /** True for the deepest generation column: render name only, on one line;
+   *  the column is sized to the longest name (see PedigreeTable grid template). */
+  isLast?: boolean;
 }): React.ReactElement {
   const { node } = cell;
 
@@ -127,6 +164,21 @@ function Cell({
     .filter(Boolean)
     .join(' · ');
   const showHealth = parentHealth && node.generation === 1 && healthLine !== '';
+
+  // Deepest generation column: name only (no titles / reg / dob), one line; the
+  // cycle marker ↺ is kept as a data-integrity flag. The column width is sized to
+  // the longest name via `max-content` in the grid template (+1ch of slack in CSS),
+  // so the single-line name never truncates.
+  if (isLast) {
+    return (
+      <div className={`ptcell ptcell--last${tint ? ' ptcell--lined' : ''}`} style={style}>
+        <div className="ptcell__main ptcell__main--nowrap" title={fullLabel}>
+          {a.name}
+          {node.repeated && <span className="ptcell__repeat" title="Ancestry loop (data)"> ↺</span>}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`ptcell${tint ? ' ptcell--lined' : ''}`} style={style}>
@@ -180,7 +232,19 @@ export default function PedigreeTable({
   const rows = 2 ** depth;
   // Grid covers the ancestor columns only (generations 1..depth); the subject is
   // a separate header above.
-  const colTemplate = `repeat(${depth}, ${COL_W}px)`;
+  // Every column is a fixed COL_W, EXCEPT the deepest (last) one, which is sized to
+  // the longest NAME (+1 char). The width is an explicit px so the header grid and
+  // the body grid share the exact same last track and stay aligned.
+  const lastColW = useMemo(() => {
+    const names = cells
+      .filter((c) => c.col === depth && c.node?.animal)
+      .map((c) => c.node!.animal!.name);
+    return names.length ? lastColumnWidth(names) : COL_W;
+  }, [cells, depth]);
+  const colTemplate =
+    depth <= 1
+      ? `${lastColW}px`
+      : `repeat(${depth - 1}, ${COL_W}px) ${lastColW}px`;
   const gridStyle: React.CSSProperties = {
     display: 'grid',
     gridTemplateColumns: colTemplate,
@@ -205,7 +269,7 @@ export default function PedigreeTable({
         </div>
         <div className="pttable__grid" style={gridStyle}>
           {ancestorCells.map((c) => (
-            <Cell key={c.key} cell={c} variant={variant} colors={colors} parentHealth={parentHealth} />
+            <Cell key={c.key} cell={c} variant={variant} colors={colors} parentHealth={parentHealth} isLast={c.col === depth} />
           ))}
         </div>
       </div>

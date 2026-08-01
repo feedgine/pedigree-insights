@@ -318,6 +318,10 @@ body {
 /* Repeated ancestor (line-bred): tint is set inline per line family; a faint
    inset edge reinforces the grouping. */
 .ptcell--lined { box-shadow: inset 2px 0 0 rgba(0, 0, 0, 0.08); }
+/* Deepest generation column: name only, one line. Its track width is an explicit
+   px (longest name + 1 char), computed in PedigreeTable and shared by the header
+   and body grids so they stay aligned. */
+.ptcell__main--nowrap { white-space: nowrap; overflow-wrap: normal; }
 .ptcell__unknown { color: #b3b9c2; font-size: 12px; }
 /* The registered name — prominent, always on its own line, always legible. */
 .ptcell__main {
