@@ -27,29 +27,15 @@ export default function HypotheticalMatingReport({
 
   return (
     <div className="hm-report">
+      {(!report.found ||
+        report.warnings.length > 0 ||
+        (report.geneticsWarnings?.length ?? 0) > 0) && (
       <div className="hm-report__head">
-        <div className="hm-report__parents">
-          {/* Sire × dam, matching the picker order. */}
-          <strong>{report.sireName}</strong>
-          <span className="hm-report__x"> × </span>
-          <strong>{report.damName}</strong>
-          {!report.found && (
-            <span className="lb__warn"> — one or both parents not found in the database</span>
-          )}
-        </div>
-
-        <ul className="lb__stats">
-          <li>
-            Projected litter COI: <strong>{coiDisplay(report.litterCoi)}</strong>
-            {report.litterAvk != null && <> · AVK {coiDisplay(report.litterAvk)}</>}{' '}
-            <span className="hm-est">(computed estimate)</span>
-          </li>
-          <li>
-            {report.commonAncestors.length} common ancestor
-            {report.commonAncestors.length === 1 ? '' : 's'} on both sides ·{' '}
-            {report.uniqueAncestors} unique ancestors in {report.generations} generations
-          </li>
-        </ul>
+        {/* Litter identity + projected COI/AVK now live in the card above the chart;
+            the counts moved into the Common-ancestors heading. Head keeps warnings. */}
+        {!report.found && (
+          <div className="lb__warn">One or both parents were not found in the database.</div>
+        )}
 
         {report.warnings.length > 0 && (
           <div className="hm-warn" role="alert">
@@ -73,6 +59,7 @@ export default function HypotheticalMatingReport({
           </div>
         )}
       </div>
+      )}
 
       {report.chartGenerations < report.generations && (
         <div className="hm-chart-note">
@@ -81,15 +68,36 @@ export default function HypotheticalMatingReport({
         </div>
       )}
       <div className="hm-report__chart">
-        <PedigreeTable tree={report.tree} variant="pedigree" parentHealth />
+        <PedigreeTable
+          tree={report.tree}
+          variant="pedigree"
+          parentHealth
+          cardBody={
+            <div className="ptcard__body">
+              <div className="ptcard__right">
+                <div className="ptcard__row">
+                  <span className="ptcard__k">Name:</span> Planned litter — {report.sireName} ×{' '}
+                  {report.damName}
+                </div>
+                <div className="ptcard__row">
+                  <span className="ptcard__k">Genetic COI:</span> {coiDisplay(report.litterCoi)}
+                  {report.litterAvk != null && <> · AVK {coiDisplay(report.litterAvk)}</>}{' '}
+                  <span className="hm-est">(computed estimate)</span>
+                </div>
+              </div>
+            </div>
+          }
+        />
       </div>
 
       <div className="hm-report__analysis">
-        {report.commonAncestors.length > 0 && (
-          <div className="hm-commons">
-            <span className="hm-commons__label">
-              Common ancestors (ranked by Blood %; highlighted in the chart where within its depth):
-            </span>
+        <div className="hm-commons">
+          <span className="hm-commons__label">
+            Common ancestors — {report.commonAncestors.length} on both sides ·{' '}
+            {report.uniqueAncestors} unique in {report.generations} generations (ranked by
+            Blood %; highlighted in the chart where within its depth):
+          </span>
+          {report.commonAncestors.length > 0 && (
             <ul className="hm-commons__list">
               {report.commonAncestors.map((a) => (
                 <li key={a.name}>
@@ -103,8 +111,8 @@ export default function HypotheticalMatingReport({
                 </li>
               ))}
             </ul>
-          </div>
-        )}
+          )}
+        </div>
 
         <div className="hm-class">
           <span className="hm-class__label">Line-breeding pattern:</span>
