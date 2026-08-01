@@ -266,6 +266,69 @@ body {
 }
 .ptsubject__k { color: var(--muted); }
 
+/* ---- Expanded subject card (Pedigree tab) — banner + two columns + footer ---- */
+.ptcard {
+  border: 1px solid #c4c9d0;
+  border-radius: 8px;
+  background: #fff;
+  padding: 10px 16px 8px;
+  margin-bottom: 12px;
+}
+.ptcard__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  border-bottom: 1px solid #c4c9d0;
+  padding-bottom: 6px;
+}
+/* JSF banner text — same font as the edition label (per request). */
+.ptcard__brand { font-size: 13px; font-weight: 400; font-style: italic; letter-spacing: normal; color: var(--muted); }
+.ptcard__edition { font-size: 13px; font-style: italic; color: var(--muted); }
+.ptcard__body {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 20px;
+  padding: 12px 2px;
+}
+.ptcard__left { display: flex; flex-direction: column; gap: 4px; }
+.ptcard__name { font-size: 20px; font-weight: 800; color: #16181b; line-height: 1.2; }
+.ptcard__sub { font-size: 12px; color: var(--muted); }
+.ptcard__photo {
+  width: 280px;
+  height: 210px;
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: #fff;
+}
+.ptcard__img { width: 100%; height: 100%; object-fit: cover; }
+.ptcard__photo--empty { border: none; background: transparent; }
+.ptcard__photo--ph { border: 1px dashed #cfd4da; border-radius: 4px; color: #b3b9c2; }
+.ptcard__phnote { font-size: 12px; }
+.ptcard__right {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: #16181b;
+  padding-top: 2px;
+}
+.ptcard__k { color: var(--muted); }
+.ptcard__titles { color: #8a7096; font-weight: 600; }
+.ptcard__genetics {
+  font-size: 12px;
+  color: #3a3350;
+  background: #faf8fc;
+  border: 1px solid #ece7f1;
+  border-radius: 6px;
+  padding: 5px 9px;
+  line-height: 1.45;
+}
+.ptcard__foot { border-top: 1px solid #c4c9d0; padding-top: 6px; text-align: right; }
+.ptcard__gen { font-size: 11px; color: var(--muted); }
+
 /* ---- Generation column headers (Parents / Grandparents / …) ---- */
 .ptgrid { width: max-content; }
 .ptgenhead {

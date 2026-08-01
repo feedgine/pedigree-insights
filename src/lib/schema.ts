@@ -39,6 +39,27 @@ export interface Animal {
   praRcd4C2orf71?: string | null;
   /** Pedigree."SAMS-KCNJ10" — recessive DNA test result. Optional, as above. */
   samsKcnj10?: string | null;
+  // --- Extended fields shown on the expanded subject card (Pedigree tab). All
+  // optional TEXT columns documented in schema-map.md; absent → NULL/undefined.
+  // @author Yuliya Malinina <julia.malinina@gmail.com>
+  /** Pedigree."Call Name" — the dog's pet/call name. */
+  callName?: string | null;
+  /** Pedigree."Died Date" (datetime as text) — date of death. */
+  diedDate?: string | null;
+  /** Pedigree."Breeder". */
+  breeder?: string | null;
+  /** Pedigree."Country of Origin". */
+  country?: string | null;
+  /** Pedigree."Photo" — file path/reference (TEXT), resolved to <db-folder>/Photos/. */
+  photo?: string | null;
+  /** Health columns (TEXT, verbatim): OFA / CERF / Hip Score / Eye Colour /
+   *  Blood Type / Genotype. */
+  ofa?: string | null;
+  cerf?: string | null;
+  hipScore?: string | null;
+  eyeColour?: string | null;
+  bloodType?: string | null;
+  genotype?: string | null;
 }
 
 /**
@@ -60,6 +81,17 @@ export interface AnimalRow {
   avk: number | null;
   praRcd4C2orf71?: string | null;
   samsKcnj10?: string | null;
+  callName?: string | null;
+  diedDate?: string | null;
+  breeder?: string | null;
+  country?: string | null;
+  photo?: string | null;
+  ofa?: string | null;
+  cerf?: string | null;
+  hipScore?: string | null;
+  eyeColour?: string | null;
+  bloodType?: string | null;
+  genotype?: string | null;
 }
 
 /**
@@ -110,6 +142,18 @@ export function toAnimal(row: AnimalRow): Animal {
     // Optional DNA health-test results — text, passed through verbatim.
     praRcd4C2orf71: row.praRcd4C2orf71,
     samsKcnj10: row.samsKcnj10,
+    // Extended subject-card fields — text, passed through verbatim.
+    callName: row.callName,
+    diedDate: row.diedDate,
+    breeder: row.breeder,
+    country: row.country,
+    photo: row.photo,
+    ofa: row.ofa,
+    cerf: row.cerf,
+    hipScore: row.hipScore,
+    eyeColour: row.eyeColour,
+    bloodType: row.bloodType,
+    genotype: row.genotype,
   };
 }
 
@@ -154,4 +198,33 @@ export function nodeLabel(animal: Animal, dense = false): string {
     .map((t) => t?.trim())
     .filter(Boolean)
     .join(' ');
+}
+
+const MONTHS_ABBR = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+];
+
+/**
+ * Format a stored datetime string (e.g. `1994-08-24 00:00:00`) as `DD-MMM-YYYY`
+ * (`24-Aug-1994`) for the subject card. Parses the leading `YYYY-MM-DD` textually
+ * to avoid any timezone shift. Null/blank/unparseable → null.
+ * @author Yuliya Malinina <julia.malinina@gmail.com>
+ */
+export function formatDmy(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const m = value.trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return value.trim() || null;
+  const [, y, mo, d] = m;
+  const mi = Number(mo) - 1;
+  const mon = mi >= 0 && mi < 12 ? MONTHS_ABBR[mi] : mo;
+  return `${d}-${mon}-${y}`;
+}
+
+/** Today as `DD-MMM-YYYY`, for the card's "generated on" stamp. */
+export function todayDmy(now: Date = new Date()): string {
+  const iso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(
+    now.getDate(),
+  ).padStart(2, '0')}`;
+  return formatDmy(iso) ?? iso;
 }

@@ -11,6 +11,7 @@ const api: PedigreeApi = {
   getStatus: () => ipcRenderer.invoke(IPC.getStatus),
   searchAnimals: (query) => ipcRenderer.invoke(IPC.searchAnimals, query),
   getAnimal: (name) => ipcRenderer.invoke(IPC.getAnimal, name),
+  getPhoto: (photo) => ipcRenderer.invoke(IPC.getPhoto, photo),
   getPedigree: (name, generations) =>
     ipcRenderer.invoke(IPC.getPedigree, name, generations),
   getPedigreeTree: (name, generations) =>

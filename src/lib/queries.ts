@@ -43,6 +43,20 @@ const PROJECTION: ProjectionField[] = [
   // carrier check + parent display; absent columns degrade to NULL (never error).
   { as: 'praRcd4C2orf71', sources: ['PRA-rcd4-C2orf71'] },
   { as: 'samsKcnj10', sources: ['SAMS-KCNJ10'] },
+  // Extended subject-card columns (Pedigree tab). All DOCUMENTED in schema-map.md;
+  // any absent column degrades to NULL (never an error).
+  // @author Yuliya Malinina <julia.malinina@gmail.com>
+  { as: 'callName', sources: ['Call Name'] },
+  { as: 'diedDate', sources: ['Died Date'] },
+  { as: 'breeder', sources: ['Breeder'] },
+  { as: 'country', sources: ['Country of Origin'] },
+  { as: 'photo', sources: ['Photo', 'HTML Photo', 'Photo #2', 'Photo #3', 'Photo #4'] },
+  { as: 'ofa', sources: ['OFA'] },
+  { as: 'cerf', sources: ['CERF'] },
+  { as: 'hipScore', sources: ['Hip Score'] },
+  { as: 'eyeColour', sources: ['Eye Colour'] },
+  { as: 'bloodType', sources: ['Blood Type'] },
+  { as: 'genotype', sources: ['Genotype'] },
 ];
 
 /** Columns without which the app cannot build a pedigree at all. If any is

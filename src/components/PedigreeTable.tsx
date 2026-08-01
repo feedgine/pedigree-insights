@@ -6,10 +6,17 @@
 //
 // Implemented with CSS grid + rowspan-style placement rather than react-flow,
 // so it stays dense and prints/scrolls like a table.
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import type { PedigreeTreeNode } from '@/lib/pedigreeAlgorithm';
 import { maxDepth, buildGrid, type GridCell } from '@/lib/tableLayout';
-import { nodeLabel, type Animal } from '@/lib/schema';
+import {
+  nodeLabel,
+  formatDmy,
+  todayDmy,
+  pctFromFraction,
+  pctFromPercent,
+  type Animal,
+} from '@/lib/schema';
 import { computeLineColors } from '@/lib/lineColors';
 
 const ROW_H = 40; // MINIMUM px per leaf row; rows grow to fit content (see grid)
@@ -69,42 +76,145 @@ function genLabel(gen: number): string {
   return `${'G '.repeat(gen - 2).trim()} Grandparents`;
 }
 
-/** The subject shown as a header block ABOVE the ancestor grid (certificate
- *  style), so the grid itself starts at the Parents column. */
+/** The subject's photo. The DB `Photo` value is a non-portable absolute path from
+ *  the editing machine, so main reads only its filename, relative to the open db
+ *  (`<db-folder>/Photos/<file>`), and returns a data: URL. No photo → empty space;
+ *  a path that can't be read → a neutral placeholder box. */
+function SubjectPhoto({ photo }: { photo: string | null | undefined }): React.ReactElement {
+  const value = photo?.trim() ?? '';
+  const [src, setSrc] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    setSrc(null);
+    setFailed(false);
+    if (!value || !window.api?.getPhoto) return;
+    window.api.getPhoto(value).then(
+      (url) => {
+        if (!alive) return;
+        if (url) setSrc(url);
+        else setFailed(true);
+      },
+      () => {
+        if (alive) setFailed(true);
+      },
+    );
+    return () => {
+      alive = false;
+    };
+  }, [value]);
+
+  if (!value) return <div className="ptcard__photo ptcard__photo--empty" />;
+  if (src) {
+    return (
+      <div className="ptcard__photo">
+        <img className="ptcard__img" src={src} alt="" />
+      </div>
+    );
+  }
+  return (
+    <div className="ptcard__photo ptcard__photo--ph">
+      {failed && <span className="ptcard__phnote">no photo</span>}
+    </div>
+  );
+}
+
+/** The expanded subject card ABOVE the ancestor grid: a `JSF / {version} Edition`
+ *  banner, then two columns (left: name, Reg·Sex, photo; right: pet name, DOB·DOD,
+ *  pre-titles, genetics/health, breeder·country), then a footer rule with the
+ *  generation date (the DB can change, so the printout is stamped). The pedigree
+ *  grid below is unchanged. Rows render only when their value is present. */
 function SubjectHeader({
   animal,
-  variant,
+  bodyOverride,
 }: {
   animal: Animal | null;
-  variant: PedigreeVariant;
+  /** When provided, replaces the animal two-column body (e.g. the Hypothetical
+   *  Mating tab supplies a litter-specific body). The JSF banner and the
+   *  "Generated" footer are kept, so every card reads consistently. */
+  bodyOverride?: React.ReactNode;
 }): React.ReactElement | null {
   if (!animal) return null;
-  const facts: [string, string | null][] = [
-    ['Date of Birth', animal.dob ? animal.dob.slice(0, 10) : null],
-    ['Sex', animal.sex],
-    ['Breed', animal.breed],
-    ['Reg No.', animal.registration],
-    ['Color', animal.color],
-    // COI is a stored fraction → ×100; AVK is already a percentage → shown raw.
-    ['COI', animal.coi == null ? null : `${(animal.coi * 100).toFixed(2)}%`],
-    ['AVK', animal.avk == null ? null : `${animal.avk.toFixed(2)}%`],
-  ];
+  const sexLabel = animal.sex === 'M' ? 'Male' : animal.sex === 'F' ? 'Female' : null;
+  const born = formatDmy(animal.dob);
+  const died = formatDmy(animal.diedDate);
+  const pre = animal.preTitle?.trim();
+  const breeder = animal.breeder?.trim();
+  const country = animal.country?.trim();
+  // COI is a stored fraction (×100); AVK is already a percentage (raw) — keep the
+  // documented scales distinct.
+  const genetics = [
+    animal.coi != null ? `COI ${pctFromFraction(animal.coi, 1)}` : null,
+    animal.avk != null ? `AVK ${pctFromPercent(animal.avk, 1)}` : null,
+    animal.praRcd4C2orf71?.trim() ? `PRA ${animal.praRcd4C2orf71.trim()}` : null,
+    animal.samsKcnj10?.trim() ? `SAMS ${animal.samsKcnj10.trim()}` : null,
+    animal.ofa?.trim() ? `OFA ${animal.ofa.trim()}` : null,
+    animal.cerf?.trim() ? `CERF ${animal.cerf.trim()}` : null,
+    animal.hipScore?.trim() ? `Hips ${animal.hipScore.trim()}` : null,
+    animal.eyeColour?.trim() ? `Eye ${animal.eyeColour.trim()}` : null,
+    animal.bloodType?.trim() ? `Blood ${animal.bloodType.trim()}` : null,
+    animal.genotype?.trim() ? `Genotype ${animal.genotype.trim()}` : null,
+  ].filter(Boolean) as string[];
+
   return (
-    <div className="ptsubject">
-      <div className="ptsubject__head">
-        <span className="ptsubject__label">
-          {variant === 'tree' ? 'Pedigree tree of:' : 'Pedigree of:'}
-        </span>
-        <span className="ptsubject__name">{nodeLabel(animal)}</span>
+    <div className="ptcard">
+      <div className="ptcard__top">
+        <span className="ptcard__brand">JSF</span>
+        <span className="ptcard__edition">{__APP_VERSION__} Edition</span>
       </div>
-      <div className="ptsubject__facts">
-        {facts
-          .filter(([, v]) => v)
-          .map(([k, v]) => (
-            <div key={k} className="ptsubject__fact">
-              <span className="ptsubject__k">{k}:</span> {v}
+      {bodyOverride ?? (
+      <div className="ptcard__body">
+        <div className="ptcard__left">
+          <div className="ptcard__name">{animal.name}</div>
+          <SubjectPhoto photo={animal.photo} />
+        </div>
+        <div className="ptcard__right">
+          {animal.callName?.trim() && (
+            <div className="ptcard__row">
+              <span className="ptcard__k">Pet name:</span> {animal.callName.trim()}
             </div>
-          ))}
+          )}
+          {born && (
+            <div className="ptcard__row">
+              <span className="ptcard__k">Born:</span> {born}
+            </div>
+          )}
+          {animal.registration && (
+            <div className="ptcard__row">
+              <span className="ptcard__k">Reg No:</span> {animal.registration}
+            </div>
+          )}
+          {sexLabel && (
+            <div className="ptcard__row">
+              <span className="ptcard__k">Sex:</span> {sexLabel}
+            </div>
+          )}
+          {died && (
+            <div className="ptcard__row">
+              <span className="ptcard__k">Died:</span> {died}
+            </div>
+          )}
+          {pre && (
+            <div className="ptcard__row">
+              <span className="ptcard__k">Titles:</span> {pre}
+            </div>
+          )}
+          {genetics.length > 0 && <div className="ptcard__genetics">{genetics.join(' · ')}</div>}
+          {breeder && (
+            <div className="ptcard__row">
+              <span className="ptcard__k">Breeder:</span> {breeder}
+            </div>
+          )}
+          {country && (
+            <div className="ptcard__row">
+              <span className="ptcard__k">Country of Origin:</span> {country}
+            </div>
+          )}
+        </div>
+      </div>
+      )}
+      <div className="ptcard__foot">
+        <span className="ptcard__gen">Generated {todayDmy()}</span>
       </div>
     </div>
   );
@@ -216,10 +326,13 @@ export default function PedigreeTable({
   tree,
   variant = 'pedigree',
   parentHealth = false,
+  cardBody,
 }: {
   tree: PedigreeTreeNode;
   variant?: PedigreeVariant;
   parentHealth?: boolean;
+  /** Optional replacement body for the subject card (see SubjectHeader). */
+  cardBody?: React.ReactNode;
 }): React.ReactElement {
   const { cells, depth } = useMemo(() => {
     const d = maxDepth(tree);
@@ -258,7 +371,7 @@ export default function PedigreeTable({
 
   return (
     <div className="pttable">
-      <SubjectHeader animal={tree.animal} variant={variant} />
+      <SubjectHeader animal={tree.animal} bodyOverride={cardBody} />
       <div className="ptgrid">
         <div className="ptgenhead" style={{ gridTemplateColumns: colTemplate }}>
           {Array.from({ length: depth }, (_, i) => (

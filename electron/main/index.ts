@@ -6,7 +6,7 @@
 // preload, which forwards to the handlers below.
 
 import { app, BrowserWindow, dialog, ipcMain, session, shell } from 'electron';
-import { basename, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { readFileSync } from 'node:fs';
 import { PedigreeDatabase } from './database';
 import { loadConfig, resolveSavedDbPath, saveConfig } from './config';
@@ -151,6 +151,32 @@ function registerIpc(): void {
   ipcMain.handle(IPC.getAnimal, (_e, name: unknown) =>
     database ? database.getAnimal(reqNonEmptyString(name, 'name')) : null
   );
+
+  // Load a subject photo as a data: URL for the expanded card. The stored `Photo`
+  // path comes from the editing machine and is not portable, so we take ONLY the
+  // filename and read it relative to the open database: <db-folder>/Photos/<file>
+  // (read-only, still within the read-only posture). Any failure — no db, blank
+  // value, or missing/unreadable file — resolves to null so the card shows blank.
+  // Using only the basename also blocks path traversal out of the Photos folder.
+  // @author Yuliya Malinina <julia.malinina@gmail.com>
+  ipcMain.handle(IPC.getPhoto, (_e, photo: unknown): string | null => {
+    if (!database || typeof photo !== 'string') return null;
+    const file = photo.split(/[\\/]/).pop()?.trim();
+    if (!file) return null;
+    try {
+      const buf = readFileSync(join(dirname(database.path), 'Photos', file));
+      const ext = (file.split('.').pop() ?? '').toLowerCase();
+      const mime =
+        ext === 'png' ? 'image/png'
+          : ext === 'gif' ? 'image/gif'
+            : ext === 'webp' ? 'image/webp'
+              : ext === 'bmp' ? 'image/bmp'
+                : 'image/jpeg';
+      return `data:${mime};base64,${buf.toString('base64')}`;
+    } catch {
+      return null;
+    }
+  });
 
   ipcMain.handle(IPC.getPedigree, (_e, name: unknown, generations: unknown) => {
     if (!database) return null;

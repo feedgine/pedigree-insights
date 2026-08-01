@@ -14,6 +14,7 @@ export const IPC = {
   getStatus: 'db:status',
   searchAnimals: 'db:search',
   getAnimal: 'db:getAnimal',
+  getPhoto: 'db:getPhoto',
   getPedigree: 'db:getPedigree',
   getPedigreeTree: 'db:getPedigreeTree',
   getLinebreeding: 'db:getLinebreeding',
@@ -86,6 +87,11 @@ export interface PedigreeApi {
   /** Name/registration search for the lookup overlay. */
   searchAnimals(query: string): Promise<Animal[]>;
   getAnimal(name: string): Promise<Animal | null>;
+  /** Load a subject's photo as a `data:` URL. The stored `Photo` value is a file
+   *  path from the editing machine; main uses only its filename and reads
+   *  `<db-folder>/Photos/<filename>` (read-only). Returns null when there is no
+   *  photo or the file cannot be read. */
+  getPhoto(photo: string): Promise<string | null>;
   /** Build the ancestor tree for a Name at the given depth. */
   getPedigree(name: string, generations: number): Promise<PedigreeTreeNode>;
   /** Build the ancestor tree for the indented TEXT pedigree (de-dup traversal,
