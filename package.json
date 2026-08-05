@@ -1,6 +1,6 @@
 {
   "name": "pedigree-insights",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "description": "Open-source, source-agnostic macOS analysis tool for pedigree SQLite databases; BreedMate-compatible. Read-only. Pedigree bracket chart, an Indented Tree text pedigree (exportable to .txt), Linebreeding crosses, and a Foundation-contribution report.",
   "author": "Yuliya Malinina <julia.malinina@gmail.com>",
   "license": "MIT",
