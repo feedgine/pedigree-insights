@@ -1,4 +1,4 @@
-// PedigreeTable.tsx — compact bracket-grid pedigree, modelled on the BreedMate
+// PedigreeTable.tsx — compact bracket-grid pedigree, modelled on the classic
 // "Family Tree" A4 layout (reference: SNOWSHOES BOBBI AT LUELDAR 8G.png).
 // Generations are columns (subject far left, ancestors fanning right); each
 // ancestor cell spans the rows of its subtree, producing the classic bracket.
@@ -18,6 +18,15 @@ import {
   type Animal,
 } from '@/lib/schema';
 import { computeLineColors } from '@/lib/lineColors';
+import {
+  DNA_TEST_FIELDS,
+  HEALTH_FIELDS,
+  PANEL_GROUPS,
+  SOURCE_FIELDS,
+  fieldText,
+  presentFields,
+  presentShort,
+} from '@/lib/sourceFields';
 
 const ROW_H = 40; // MINIMUM px per leaf row; rows grow to fit content (see grid)
 const COL_W = 210; // px per generation column (fixed, like the Finnish KC layout)
@@ -119,6 +128,86 @@ function SubjectPhoto({ photo }: { photo: string | null | undefined }): React.Re
   );
 }
 
+/** One labelled line of the card's genetics block (DNA results, health screening).
+ *
+ *  Each result is its own non-breaking chip in a WRAPPING row, so a dog with a dozen
+ *  DNA columns flows onto as many lines as it needs instead of one very long line that
+ *  stretches the card (and therefore the exported page) sideways. A result is never
+ *  split mid-value across a line break — "PRA-rcd4-C2orf71 Clear" always stays together.
+ *  The line count follows the number of non-empty fields; the width cap lives in CSS
+ *  (`.ptcard__gitems`).
+ *  @author Yuliya Malinina <julia.malinina@gmail.com> — 2026-08-05
+ */
+function GeneticsLine({
+  label,
+  items,
+}: {
+  label: string;
+  items: { key: string; label: string; value: string }[];
+}): React.ReactElement {
+  return (
+    <div className="ptcard__gline">
+      <span className="ptcard__k ptcard__glabel">{label}:</span>
+      <span className="ptcard__gitems">
+        {items.map((d) => (
+          <span className="ptcard__gitem" key={d.key}>
+            {d.label} <b className="ptcard__gval">{d.value}</b>
+          </span>
+        ))}
+      </span>
+    </div>
+  );
+}
+
+/** Collapsible "all database fields" panel under the subject card.
+ *
+ *  Shows EVERY column of the agreed 74-column source layout that actually holds
+ *  a value for this dog, grouped (Identity / Registration / Breeding / Genetics &
+ *  DNA / Health / Breeder fields / Other). Columns that are empty — or absent from
+ *  the opened .db — are simply not listed, so the panel is a truthful view of what
+ *  the source file contains rather than a wall of blanks.
+ *
+ *  Collapsed by DEFAULT on purpose: the PDF/PNG export prints this DOM and must stay
+ *  one page (PRD §11). Opening it is a deliberate act by the reader.
+ *  the source format's internal mark bitmasks are excluded (PANEL_GROUPS omits 'internal').
+ *  @author Yuliya Malinina <julia.malinina@gmail.com> — 2026-08-05
+ */
+function AllFieldsPanel({ animal }: { animal: Animal }): React.ReactElement | null {
+  const sections = PANEL_GROUPS.map(({ group, title }) => ({
+    title,
+    rows: presentFields(
+      animal,
+      SOURCE_FIELDS.filter((f) => f.group === group),
+    ),
+  })).filter((sec) => sec.rows.length > 0);
+
+  const total = sections.reduce((n, sec) => n + sec.rows.length, 0);
+  if (total === 0) return null;
+
+  return (
+    <details className="ptfields">
+      <summary className="ptfields__summary">
+        All database fields ({total} of {SOURCE_FIELDS.length})
+      </summary>
+      <div className="ptfields__body">
+        {sections.map((sec) => (
+          <section className="ptfields__sec" key={sec.title}>
+            <h4 className="ptfields__title">{sec.title}</h4>
+            <dl className="ptfields__dl">
+              {sec.rows.map((r) => (
+                <div className="ptfields__pair" key={r.key}>
+                  <dt className="ptfields__dt">{r.label}</dt>
+                  <dd className="ptfields__dd">{r.value}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+        ))}
+      </div>
+    </details>
+  );
+}
+
 /** The expanded subject card ABOVE the ancestor grid: a `JSF / {version} Edition`
  *  banner, then two columns (left: name, Reg·Sex, photo; right: pet name, DOB·DOD,
  *  pre-titles, genetics/health, breeder·country), then a footer rule with the
@@ -141,20 +230,23 @@ function SubjectHeader({
   const pre = animal.preTitle?.trim();
   const breeder = animal.breeder?.trim();
   const country = animal.country?.trim();
-  // COI is a stored fraction (×100); AVK is already a percentage (raw) — keep the
-  // documented scales distinct.
-  const genetics = [
+  const register = fieldText(animal, SOURCE_FIELDS[26]); // #27 Register (registry code)
+  // GENETICS SECTION (owner decision 2026-08-05) — three separate lines so a dog
+  // with a dozen DNA results stays readable:
+  //   1. the two stored COEFFICIENTS. COI is a stored fraction (×100 for display);
+  //      AVK is already a percentage (shown raw) — the documented scales differ and
+  //      must not be conflated (CLAUDE.md "Coefficient scale").
+  //   2. the DNA TEST block, layout columns #62–#74, verbatim text.
+  //   3. clinical HEALTH screening (hips, elbows, OFA, CERF, eyes, …).
+  // Every line is omitted when it has nothing to show.
+  const coefficients = [
     animal.coi != null ? `COI ${pctFromFraction(animal.coi, 1)}` : null,
     animal.avk != null ? `AVK ${pctFromPercent(animal.avk, 1)}` : null,
-    animal.praRcd4C2orf71?.trim() ? `PRA ${animal.praRcd4C2orf71.trim()}` : null,
-    animal.samsKcnj10?.trim() ? `SAMS ${animal.samsKcnj10.trim()}` : null,
-    animal.ofa?.trim() ? `OFA ${animal.ofa.trim()}` : null,
-    animal.cerf?.trim() ? `CERF ${animal.cerf.trim()}` : null,
-    animal.hipScore?.trim() ? `Hips ${animal.hipScore.trim()}` : null,
-    animal.eyeColour?.trim() ? `Eye ${animal.eyeColour.trim()}` : null,
-    animal.bloodType?.trim() ? `Blood ${animal.bloodType.trim()}` : null,
-    animal.genotype?.trim() ? `Genotype ${animal.genotype.trim()}` : null,
   ].filter(Boolean) as string[];
+  // #74 DNA-COI is a GENOMIC figure from a lab report, not the pedigree COI (#46) —
+  // it rides along with the DNA block and keeps its own label.
+  const dna = presentShort(animal, DNA_TEST_FIELDS);
+  const health = presentShort(animal, HEALTH_FIELDS);
 
   return (
     <div className="ptcard">
@@ -184,6 +276,11 @@ function SubjectHeader({
               <span className="ptcard__k">Reg No:</span> {animal.registration}
             </div>
           )}
+          {register && (
+            <div className="ptcard__row">
+              <span className="ptcard__k">Register:</span> {register}
+            </div>
+          )}
           {sexLabel && (
             <div className="ptcard__row">
               <span className="ptcard__k">Sex:</span> {sexLabel}
@@ -199,7 +296,15 @@ function SubjectHeader({
               <span className="ptcard__k">Titles:</span> {pre}
             </div>
           )}
-          {genetics.length > 0 && <div className="ptcard__genetics">{genetics.join(' · ')}</div>}
+          {(coefficients.length > 0 || dna.length > 0 || health.length > 0) && (
+            <div className="ptcard__genetics">
+              {coefficients.length > 0 && (
+                <div className="ptcard__gline">{coefficients.join(' · ')}</div>
+              )}
+              {dna.length > 0 && <GeneticsLine label="DNA" items={dna} />}
+              {health.length > 0 && <GeneticsLine label="Health" items={health} />}
+            </div>
+          )}
           {breeder && (
             <div className="ptcard__row">
               <span className="ptcard__k">Breeder:</span> {breeder}
@@ -213,6 +318,7 @@ function SubjectHeader({
         </div>
       </div>
       )}
+      {!bodyOverride && <AllFieldsPanel animal={animal} />}
       <div className="ptcard__foot">
         <span className="ptcard__gen">Generated {todayDmy()}</span>
       </div>

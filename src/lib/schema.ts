@@ -1,11 +1,13 @@
 // schema.ts — TypeScript interfaces and pure helpers for the confirmed
-// BreedMate `Pedigree` schema (docs/schema-map.md [DOCUMENTED]).
+// source `Pedigree` schema (docs/schema-map.md [DOCUMENTED]).
 //
 // The source identity is the TEXT `Name` column (primary key). `Sire`/`Dam`
 // store the parent's Name string, NOT an integer foreign key. All values here
 // mirror real, confirmed column names — nothing is assumed.
 //
 // [DRAFT — requires Yuliya's review] until confirmed working on the target Mac.
+
+import { SOURCE_FIELDS } from "./sourceFields";
 
 /** One animal, projected from the `Pedigree` table to the fields the app uses. */
 export interface Animal {
@@ -60,13 +62,24 @@ export interface Animal {
   eyeColour?: string | null;
   bloodType?: string | null;
   genotype?: string | null;
+  /**
+   * EVERY projected column of the agreed 74-column source layout, keyed by its
+   * catalogue alias (sourceFields.ts). This is what the Pedigree tab's genetics
+   * section and "All fields" panel read, so a new source column becomes visible by
+   * adding ONE catalogue entry — no change here, in queries.ts, or in the card.
+   *
+   * The named properties above are kept because existing call sites use them; they
+   * mirror the same values. Absent/NULL columns are simply missing from the map.
+   * @author Yuliya Malinina <julia.malinina@gmail.com> — 2026-08-05
+   */
+  fields?: Readonly<Record<string, string | number | null>>;
 }
 
 /**
  * Shape returned by the raw SQL projection in queries.ts. `sexRaw` is the dirty
  * source value; the data layer maps it to `Animal.sex` via normalizeSex().
  */
-export interface AnimalRow {
+export interface AnimalRow extends Record<string, unknown> {
   name: string;
   sire: string | null;
   dam: string | null;
@@ -154,7 +167,30 @@ export function toAnimal(row: AnimalRow): Animal {
     eyeColour: row.eyeColour,
     bloodType: row.bloodType,
     genotype: row.genotype,
+    // The full 74-column projection, verbatim (see Animal.fields).
+    fields: projectFields(row),
   };
+}
+
+/**
+ * Collect every catalogue alias present on a projected row into a plain map.
+ * Values are passed through VERBATIM (same contract as the named fields above —
+ * scaling/formatting happens only at the display edge). Blank strings are dropped
+ * so "has a value" is a single null check downstream.
+ */
+function projectFields(row: AnimalRow): Record<string, string | number | null> {
+  const out: Record<string, string | number | null> = {};
+  for (const f of SOURCE_FIELDS) {
+    const v = row[f.as];
+    if (v == null) continue;
+    if (typeof v === "number") {
+      out[f.as] = v;
+    } else {
+      const s = String(v).trim();
+      if (s !== "") out[f.as] = s;
+    }
+  }
+  return out;
 }
 
 /**

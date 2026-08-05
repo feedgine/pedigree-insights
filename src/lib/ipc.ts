@@ -33,8 +33,13 @@ export const IPC = {
 export interface PrintPdfOptions {
   /** A4 landscape when true (bracket charts); portrait otherwise (text reports). */
   landscape: boolean;
-  /** Paper size. Charts auto-bump to A3 when too wide for A4 (like PedigreePub). */
-  pageSize: 'A4' | 'A3';
+  /**
+   * Paper size. Text reports use the standard sheets; the bracket chart passes a
+   * CUSTOM size in INCHES (electron printToPDF's unit since v21) cut to the chart's
+   * own box, so the PDF has no wasted width — see chartExport.planContentPagePdf.
+   * @author Yuliya Malinina <julia.malinina@gmail.com> — 2026-08-05
+   */
+  pageSize: 'A4' | 'A3' | { width: number; height: number };
   /** Suggested file name (without extension) for the save dialog. */
   defaultName: string;
 }

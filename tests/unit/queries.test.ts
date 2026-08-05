@@ -1,4 +1,4 @@
-// Unit tests — schema-adaptive projection. BreedMate exports name the genetics
+// Unit tests — schema-adaptive projection. Source exports name the genetics
 // columns differently ("Inbreeding Coefficient"/"Relationship Coefficient" in
 // the sample; "COI"/"AVK" in real exports). buildSelectCols must adapt to the
 // columns actually present, and never select a non-existent column.

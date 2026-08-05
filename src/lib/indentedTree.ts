@@ -1,4 +1,4 @@
-// indentedTree.ts — renders a PedigreeTreeNode as a BreedMate-style ASCII
+// indentedTree.ts — renders a PedigreeTreeNode as a classic indented ASCII
 // "indented tree" (the Family Tree text export), plus a short summary header.
 // This is the SINGLE SOURCE OF TRUTH for both the on-screen report and the
 // .txt export, so what the user sees on screen is exactly what is written to
@@ -26,7 +26,7 @@ const BLANK = '    ';
 const PIPE = '|   ';
 
 /**
- * Format a stored DOB as M/D/YYYY to match the BreedMate export. Accepts an
+ * Format a stored DOB as M/D/YYYY to match the source export. Accepts an
  * ISO datetime ('YYYY-MM-DD…') or an already-US date; strips any time part.
  * Returns '' for a null/blank/unparseable value rather than inventing a date.
  */
@@ -47,7 +47,7 @@ export function formatDob(dob: string | null | undefined): string {
  * One node's text: `G{gen} {name} {registration} ({dob})`. Titles are
  * intentionally omitted — the generation label replaces them (spec). An
  * unknown/missing ancestor renders as an empty string, i.e. a bare '+--',
- * exactly like the BreedMate export. A repeated (line-bred) ancestor is shown
+ * exactly like the source export. A repeated (line-bred) ancestor is shown
  * once expanded elsewhere and marked '[repeat]' here so the reader knows its
  * ancestry is not re-drawn under this occurrence.
  */

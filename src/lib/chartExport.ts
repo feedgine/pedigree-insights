@@ -5,7 +5,7 @@
 // electron/main/export.ts); these helpers only prepare the page/image and call
 // the typed window.api bridge. [DRAFT — verify on target Mac.]
 
-import type { SaveResult } from './ipc';
+import type { PrintPdfOptions, SaveResult } from './ipc';
 
 /** CSS px at 96 dpi for a millimetre measurement. */
 const px = (mm: number) => (mm / 25.4) * 96;
@@ -20,6 +20,64 @@ export const A3_LANDSCAPE_H = px(297 - 2 * 8);
 const READABLE_MIN_SCALE = 0.6;
 // Trim the final scale slightly so rounding never spills onto a second page.
 const ONE_PAGE_SAFETY = 0.98;
+
+// --- Content-sized pages (2026-08-05) --------------------------------------
+// The A4/A3 plan below fits the whole chart onto a STANDARD sheet, which for a
+// deep bracket means shrinking it until the text is unreadable and leaving a
+// wide empty margin. The PNG export never had that problem because the image is
+// exactly the size of the content. planContentPagePdf gives the PDF the same
+// property: a single page cut to the chart's own box.
+// @author Yuliya Malinina <julia.malinina@gmail.com>
+
+/** Per-side printable margin the main process applies (inches) — keep in sync
+ *  with the printToPDF margins in electron/main/export.ts. */
+export const PDF_MARGIN_IN = 0.315;
+/** Hard PDF/Chromium ceiling: 200 inches per side. Beyond this the sheet is
+ *  invalid, so an enormous chart is scaled down to fit instead. */
+export const PDF_MAX_SIDE_IN = 200;
+/**
+ * A custom, content-sized sheet: page dimensions in INCHES + the zoom applied to
+ * the chart before printing.
+ *
+ * UNITS — do not "fix" these to microns. Electron's modern `printToPDF` (>= 21,
+ * this app is on 33) documents a custom `pageSize` object as "height and width in
+ * INCHES"; microns was the old, removed API. Passing microns produced a page of
+ * ~317500 x 690000 in, which Acrobat rejects with "The dimensions of this page are
+ * out-of-range. Page content might be truncated." (reported 2026-08-05).
+ */
+export interface ContentPagePlan {
+  pageSize: { width: number; height: number };
+  /** Fit zoom in (0, 1]; shrink only, never enlarge. */
+  scale: number;
+}
+
+/**
+ * Plan a single page whose size IS the chart's size (plus the printer margins),
+ * so the PDF has no wasted width — the paper equivalent of the PNG export.
+ *
+ * `scale` stays 1 for any normal chart; it only drops when the content would
+ * exceed the 200-inch PDF side limit (a very deep bracket), in which case the
+ * chart is shrunk just enough to fit and the page follows it down. Pure (no DOM)
+ * so it is unit-tested.
+ */
+export function planContentPagePdf(
+  chartWidthPx: number,
+  chartHeightPx: number,
+): ContentPagePlan {
+  const wIn = Math.max(chartWidthPx, 1) / 96;
+  const hIn = Math.max(chartHeightPx, 1) / 96;
+  const maxContentIn = PDF_MAX_SIDE_IN - 2 * PDF_MARGIN_IN;
+  const scale = Math.min(1, maxContentIn / wIn, maxContentIn / hIn);
+  const pageWIn = wIn * scale + 2 * PDF_MARGIN_IN;
+  const pageHIn = hIn * scale + 2 * PDF_MARGIN_IN;
+  // Inches, rounded to 1/1000in — enough precision for an exact fit, and it keeps
+  // the value well clear of floating-point noise at the 200in ceiling.
+  const round = (n: number) => Math.round(n * 1000) / 1000;
+  return {
+    pageSize: { width: round(pageWIn), height: round(pageHIn) },
+    scale,
+  };
+}
 
 /** Chosen paper + zoom for fitting the whole chart on one page. */
 export interface PdfPagePlan {
@@ -77,31 +135,46 @@ const nextFrame = (): Promise<void> =>
 /**
  * Save the current chart as a PDF. Printing is driven from the main process
  * (printToPDF) because macOS ignores the CSS @page orientation, so wide bracket
- * charts printed portrait and clipped. We pick the smallest paper that fits the
- * chart width — A4, or A3 when the columns are too wide for A4 (mirroring the
- * PedigreePub tool) — then set `--print-scale` to shrink any remaining width.
- * Height still paginates downward; use {@link exportChartPng} for one unbroken
- * image. Non-chart views pass landscape:false and print A4 portrait at scale 1.
+ * charts printed portrait and clipped.
+ *
+ * For charts the sheet is CUT TO THE CHART (planContentPagePdf): one page, no
+ * wasted width, no shrink-to-A4 — the same tight result the PNG export gives
+ * (owner request, 2026-08-05). `--print-scale` stays 1 unless the chart exceeds
+ * the 200-inch PDF side limit. Non-chart views pass landscape:false and still
+ * print a standard A4 portrait sheet at scale 1.
  */
 export async function exportChartPdf(opts: {
   landscape: boolean;
   defaultName: string;
 }): Promise<SaveResult> {
   const { landscape, defaultName } = opts;
-  let pageSize: 'A4' | 'A3' = 'A4';
+  let pageSize: PrintPdfOptions['pageSize'] = 'A4';
 
   if (landscape) {
-    // Measure the full chart (scroll container holds the whole bracket) and fit
-    // the entire thing — width and height — onto one page.
+    // Measure the chart the way it will actually PRINT. On screen `.pttable` is a
+    // 100%-wide scroll container, so its scrollWidth is the WINDOW width whenever
+    // the chart is narrower — measuring that produced a page as wide as the app
+    // window. `.pttable--measuring` mirrors the print rules (shrink-wrapped,
+    // unclipped, no padding) for two frames, so what we measure is the printed
+    // content box.
     const el = document.querySelector('.pttable') as HTMLElement | null;
-    const plan = planOnePagePdf(el?.scrollWidth ?? 0, el?.scrollHeight ?? 0);
+    if (el) {
+      el.classList.add('pttable--measuring');
+      await nextFrame();
+    }
+    const plan = planContentPagePdf(el?.scrollWidth ?? 0, el?.scrollHeight ?? 0);
+    el?.classList.remove('pttable--measuring');
     pageSize = plan.pageSize;
     document.documentElement.style.setProperty('--print-scale', String(plan.scale));
     await nextFrame();
   }
 
   try {
-    return await window.api.printPdf({ landscape, pageSize, defaultName });
+    // A custom page already encodes its own orientation. `landscape: true` makes
+    // Chromium SWAP width and height, which would rotate the sheet away from the
+    // box we just measured — so it is only sent for the standard A4/A3 sheets.
+    const printLandscape = typeof pageSize === 'object' ? false : landscape;
+    return await window.api.printPdf({ landscape: printLandscape, pageSize, defaultName });
   } finally {
     document.documentElement.style.setProperty('--print-scale', '1');
   }

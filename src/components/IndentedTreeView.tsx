@@ -1,4 +1,4 @@
-// IndentedTreeView — the Indented Tree stage (BreedMate-style text pedigree).
+// IndentedTreeView — the Indented Tree stage (classic indented-text pedigree).
 // Follows the same self-contained pattern as the other report views: it fetches
 // its own de-dup ancestor tree via useResource (getPedigreeTree, 5/10/20 gens),
 // renders it through buildPedigreeText, and reports readiness up.

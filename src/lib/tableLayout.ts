@@ -52,7 +52,7 @@ export interface GridCell {
  * gets a cell, even where there is no ancestor (unknown parent, or beneath a
  * repeated/leaf node). Filler slots carry node:null and render as blank bordered
  * boxes, so the table reads as a solid grid with no voids — like a printed
- * BreedMate sheet. The underlying traversal/counts are unchanged; this only
+ * printed pedigree sheet. The underlying traversal/counts are unchanged; this only
  * affects rendering.
  */
 export function buildGrid(root: PedigreeTreeNode, depth: number): GridCell[] {

@@ -73,7 +73,7 @@ function recessiveRisk(label: string, a: DnaStatus, b: DnaStatus): string | null
 
 /**
  * Parse a stored DOB into a UTC Date, or null if blank/unparseable. Accepts an
- * ISO datetime ('YYYY-MM-DD…') or the BreedMate US form 'M/D/YYYY'; anything
+ * ISO datetime ('YYYY-MM-DD…') or the US form 'M/D/YYYY' used by some exports; anything
  * else yields null (we never invent a date).
  */
 export function parseDob(dob: string | null | undefined): Date | null {

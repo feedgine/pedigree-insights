@@ -55,7 +55,7 @@ Implementation: Electron `dialog.showOpenDialog`; persist path via electron-stor
 | Read + write | Edit animal records in-app; requires schema write-path testing |
 
 **Confirmed choice: Read-only (confirmed 2026-06-14)**
-No write queries, no edit UI; open the .db read-only to protect BreedMate file integrity.
+No write queries, no edit UI; open the .db read-only to protect the source file's integrity.
 
 ---
 

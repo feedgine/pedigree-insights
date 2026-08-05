@@ -1,6 +1,6 @@
 // layout.ts — pure transform from an ancestor PedigreeTreeNode into positioned
 // react-flow nodes + edges. No React, no reactflow runtime (types only), so it
-// is unit-testable. Reproduces the BreedMate "Family Tree" look (PRD §6.3):
+// is unit-testable. Reproduces the classic "Family Tree" look (PRD §6.3):
 // subject at the far left, ancestors fanning right, boxes shrinking by depth,
 // elbow connectors, sex colour-coding handled by the node component.
 

@@ -8,7 +8,7 @@ updated: 2026-06-14
 ## Key change from v1.0
 
 The original draft assumed integer foreign keys (`sireId → Animal.id`). The real
-BreedMate schema has **no integer id**: the primary key is `Name` (TEXT), and
+source schema has **no integer id**: the primary key is `Name` (TEXT), and
 `Sire`/`Dam` store the parent's **Name string**. All traversal is therefore a
 self-join on the Name column, not an id lookup. See schema-map.md "CRITICAL".
 
@@ -52,7 +52,7 @@ function normalizeSex(raw: string | null): 'M' | 'F' | null {
   return s === 'M' || s === 'F' ? s : null;
 }
 
-// Name matching is exact text. BreedMate names are mixed-case with stray
+// Name matching is exact text. Source names are mixed-case with stray
 // whitespace, so normalize consistently on BOTH sides of every comparison.
 function keyOf(name: string | null): string | null {
   const k = name?.trim();
@@ -191,8 +191,8 @@ so the CLAUDE.md canine-genetics validation gate applies to that script, not her
 ## Validation checklist
 
 ```
-[ ] Ancestor count for a test animal matches BreedMate's own pedigree view
-[ ] Sire/Dam resolve by Name (spot-check a 3-generation chart against BreedMate)
+[ ] Ancestor count for a test animal matches the source application's own pedigree view
+[ ] Sire/Dam resolve by Name (spot-check a 3-generation chart against the source application)
 [ ] Foundation ancestors (Sire/Dam with no matching row) render as leaf nodes, no error
 [ ] No infinite loop on an animal whose Name appears in its own ancestry
 [ ] Depth limit enforced at exactly maxGenerations (ancestors) / maxGenerations (descendants)

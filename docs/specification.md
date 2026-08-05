@@ -54,7 +54,7 @@ It began as an interactive pedigree-chart viewer and has grown into a small
 **analysis tool with four report tabs plus a planning tool**:
 
 1. **Pedigree** — a bracket pedigree chart (titles · name · DOB · reg).
-2. **Indented Tree** — a BreedMate-style **indented text pedigree** (the "Family
+2. **Indented Tree** — a classic **indented text pedigree** (the "Family
    Tree" layout): the subject at the left margin, sire block above and dam block
    below, indented one level per generation. Each node is labelled with its
    generation (G0 = subject, G1, G2 …), name, registration and DOB; a summary
@@ -110,7 +110,7 @@ The user is comfortable installing a Mac app but is not necessarily technical.
   indented text tree (the latter exportable to `.txt`) — for any selected animal.
 - Surface line-breeding (repeated ancestors and their crosses) at a glance.
 - Quantify foundation-dog presence and contribution across all generations.
-- Read directly from the existing BreedMate `.db` without altering it.
+- Read directly from the existing pedigree `.db` without altering it.
 - Run entirely locally; ship as free, open-source software under the **MIT license**.
 
 ### Non-goals
@@ -124,7 +124,7 @@ The user is comfortable installing a Mac app but is not necessarily technical.
 
 ## 5. Scope — the four reports + planning tool
 
-A user opens the app, it connects to their BreedMate `.db`, they look up a dog by
+A user opens the app, it connects to their pedigree `.db`, they look up a dog by
 name, and they switch between five tabs (four reports + a Hypothetical Mating planning tool). Looking up a dog by name is the minimum
 supporting capability (matches Name or Registration).
 
@@ -146,13 +146,13 @@ Indented Tree) — see §6.7.
 
 ### 6.1 First launch and database connection
 
-On first launch the app prompts the user to **locate the BreedMate `.db` file
+On first launch the app prompts the user to **locate the pedigree `.db` file
 with a native file picker** (§7.4). The chosen path is saved to a config file, so
 subsequent launches open the same file automatically. The file can live anywhere,
 and the user can re-point the app at a different file with the **Open DB** button
 in the header. If the saved file
 is missing on a later launch, the app falls back to the picker rather than
-failing. If the file is not a usable BreedMate pedigree database (its `Pedigree`
+failing. If the file is not a usable pedigree database (its `Pedigree`
 table is missing required columns `Name`/`Sire`/`Dam`), the app shows a clear
 message rather than a raw SQLite error.
 
@@ -204,7 +204,7 @@ are not legible; deep analysis lives in the Linebreeding/Foundation reports).
 
 ### 6.3a Indented Tree (the text pedigree)
 
-The Indented Tree tab renders the subject's ancestry as a **BreedMate-style
+The Indented Tree tab renders the subject's ancestry as a **classic
 indented text pedigree** (the "Family Tree" export layout), shown in a monospace
 block so the ASCII alignment holds. Unlike the bracket chart it is *text* — which
 is exactly what makes it exportable to a plain `.txt` file (§6.7).
@@ -225,7 +225,7 @@ first occurrence is drawn in full, and any later occurrence (line-breeding) is
 shown but flagged `[repeat]` and **not** re-expanded. This keeps even a
 20-generation line-bred tree bounded as text (the fully-expanded chart would
 double every generation). Unknown/foundation ancestors render as a **bare `+--`
-slot**, exactly like the BreedMate export.
+slot**, exactly like the source export.
 
 **Genetics.** The header's COI and AVK are the **stored** values from the database
 shown **verbatim** ("Not available" if absent); the Indented Tree never recomputes
@@ -287,7 +287,7 @@ chosen subject, across **all generations**.
 
 ### 6.6 Robustness for real-world data
 
-BreedMate data can contain entry errors, including circular ancestry. No view may
+Real pedigree data can contain entry errors, including circular ancestry. No view may
 hang or crash on such data. Every traversal is **depth-limited AND loop-guarded**
 (per-path for the chart/contribution walks, global de-dup for ancestor counts);
 the genetics engine is **iterative and visited-bounded**. This is a hard product
@@ -429,7 +429,7 @@ item (§9).
 
 **History.** Through v1.1 a dog's own COI was kept strictly external (computed by a
 separate script, displayed read-only) because genetics output must be validated.
-In v1.3 this was **reversed** after investigation showed the stored BreedMate COI
+In v1.3 this was **reversed** after investigation showed the stored source COI
 column is unreliable — capped near ~0.4 % (a dog Pedigree Online rates at 28 % was
 stored as 0.30 %). Hiding/displaying a bad value is worse than computing a correct
 one, so — **owner-approved 2026-06-27** — COI/AGR/AVK are now computed in-app by a
@@ -484,11 +484,11 @@ persisted to config and reused on later launches, surviving the file being moved
 - **Platform:** local macOS desktop app (Apple Silicon / arm64 MVP target),
   single user, offline. Exists because BreedMate is Windows-only.
 - **Data source:** any pedigree **SQLite** database that meets the *Source database
-  contract* below (BreedMate `.db` being the primary tested format).
+  contract* below (a BreedMate `.db` being the primary tested format).
   PedigreeInsights consumes the file; it does not create it.
 
 - **Source database contract (source-agnostic).** The app depends only on the
-  following; everything else BreedMate-specific is incidental. Enforced via
+  following; everything else about the source format is incidental. Enforced via
   `PRAGMA table_info` at connect time (`queries.ts` `REQUIRED_COLUMNS` /
   `buildSelectCols`); a missing mandatory column yields a clear error, a missing
   optional column degrades to NULL.
@@ -503,7 +503,7 @@ persisted to config and reused on later launches, surviving the file being moved
 
   *Optional (used if present, else "—"):* `Sex`, `DOB`, `Registration` (also used
   by search), `PreTitle`, `PostTitle`, `Color`, `Breed`, and the stored genetics
-  columns `COI` / `AVK` (or BreedMate's `Inbreeding Coefficient` /
+  columns `COI` / `AVK` (or the long names `Inbreeding Coefficient` /
   `Relationship Coefficient`). Stored genetics are shown only on the Pedigree
   chart and in the Indented Tree header; the analytical reports recompute and
   ignore them (§7.3). Optional **DNA health-test** columns `PRA-rcd4-C2orf71` and
@@ -541,7 +541,7 @@ persisted to config and reused on later launches, surviving the file being moved
   table or columns are named differently (or that uses integer parent IDs), via a
   small table-name/column-alias mapping, fully generalising the Source database
   contract (§8) beyond the currently-fixed `Pedigree`/`Name`/`Sire`/`Dam` names.
-- **Photo display** in the subject header (BreedMate `Photo` is a file path,
+- **Photo display** in the subject header (the source `Photo` column is a file path,
   usually to the original Windows machine, so not reliably displayable today).
 - **PedigreePub-style chart repack** — tapering column widths + thin packed deep
   rows so a deep bracket fits one page *legibly*, letting the PDF be both one-page
@@ -585,7 +585,7 @@ The product is in good shape when, on the target Mac:
 
 ```
 [ ] App launches; first run prompts a file picker, then reopens the saved .db path.
-[ ] A non-BreedMate / column-missing file yields a clear message, not a raw SQLite error.
+[ ] A file that does not meet the source contract (missing columns) yields a clear message, not a raw SQLite error.
 [ ] A real export whose genetics columns are named COI/AVK opens and reads correctly.
 [ ] Look up a dog by name; the four tabs all populate for the selection.
 [ ] Pedigree tab: subject in a header block; grid starts at Parents with generation headers.
@@ -719,7 +719,7 @@ end-to-end layer is intended, not yet built.
 - "2026-06-27 (v1.2) — Export reworked into a single **Save…** menu (extensible format picker) replacing the Print/PDF button. PDF is now rendered by the Electron MAIN process (printToPDF), because macOS ignores the CSS @page orientation under window.print(); charts export A4/A3 LANDSCAPE with the WHOLE bracket fit onto ONE page (A3 chosen when A4 would be unreadably small). New **PNG** export rasterizes the entire chart as one image with no page limit. Text reports export A4 portrait. (§5, §6.7, §8, §11)"
 - "2026-06-27 (v1.2) — Export approach benchmarked against the external **PedigreePub** tool (its A3-when-too-wide + save-as-PNG workarounds); PNG pixel-ratio is clamped to the browser canvas limit with a user notice (§6.7)"
 - "2026-06-27 (v1.3) — Linebreeding report completed to PedigreeOnline parity: **Blood %** (Wright's ½^gen contribution) and **Influence** (equivalent cross pair) are now COMPUTED in-app (structural estimates); rows RANKED by Blood % to surface top influencers; unique-ancestor denominator corrected to 2^(g+1)−2 (§6.4)"
-- "2026-06-27 (v1.3) — Genetics policy REVERSED: COI/AGR/AVK are now COMPUTED IN-APP by a validated module (src/lib/genetics.ts), not an external script — the stored BreedMate COI proved unreliable. COI = Meuwissen & Luo (1992); AGR = Colleau (2002) indirect; AVK = ancestor-loss with BigInt denominator. Validated to machine precision vs the exact tabular method + hand pedigrees. Owner-approved 2026-06-27 (§4, §5, §7.3, §9)"
+- "2026-06-27 (v1.3) — Genetics policy REVERSED: COI/AGR/AVK are now COMPUTED IN-APP by a validated module (src/lib/genetics.ts), not an external script — the stored source COI proved unreliable. COI = Meuwissen & Luo (1992); AGR = Colleau (2002) indirect; AVK = ancestor-loss with BigInt denominator. Validated to machine precision vs the exact tabular method + hand pedigrees. Owner-approved 2026-06-27 (§4, §5, §7.3, §9)"
 - "2026-06-27 (v1.3) — Pedigree CYCLES (a dog within its own ancestry; 19 found in the sample DB) are detected, broken for the math, and surfaced as a non-blocking warning listing offending dogs (break-and-warn, owner-confirmed default) (§6.4, §6.6)"
 - "2026-06-27 (v1.3) — Repositioned as a SOURCE-AGNOSTIC pedigree-database analysis tool: documented the minimal Source database contract (mandatory table `Pedigree` + `Name`/`Sire`/`Dam`; the rest optional). BreedMate remains the primary tested format (§1, §8)"
 - "2026-06-27 (v1.3) — Genetics use clarified per report: Linebreeding & Foundation always RECOMPUTE and IGNORE stored COI/AVK/AGR; Pedigree & PedigreeTree DISPLAY stored COI/AVK verbatim (no recompute) (§5, §7.3)"

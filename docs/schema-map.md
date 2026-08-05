@@ -3,24 +3,24 @@ title: schema-map
 status: DOCUMENTED
 source: direct inspection of DogSampleData.db (BreedMate export)
 confirmed: 2026-06-14
-updated: 2026-06-27
+updated: 2026-08-05
 verification: PRAGMA table_info against the sample .db — column names below are the real SQLite identifiers
 sql_quoting: column names contain spaces, dots, slashes and a leading-underscore convention — always quote them (e.g. "Studbook No.")
 ---
 
 ## Source-agnostic note (2026-06-27)
 
-The full column catalogue below documents the **BreedMate export** (the primary
-tested format). The app itself is **source-agnostic** and depends on only a small
+The full column catalogue below documents a real **BreedMate export** (the primary
+tested source format). The app itself is **source-agnostic** and depends on only a small
 subset — the "Source database contract" (specification.md §8):
 
 - **Mandatory:** a table named `Pedigree` with `Name`, `Sire`, `Dam` (TEXT;
   `Sire`/`Dam` hold the parent's `Name` string, not an integer id).
 - **Optional:** Sex, DOB, Registration, PreTitle, PostTitle, Color, Breed, and the
-  stored genetics columns `COI`/`AVK` (BreedMate long names also accepted) — each
+  stored genetics columns `COI`/`AVK` (the long names also accepted) — each
   degrades to NULL/"—" if absent (`queries.ts` `buildSelectCols`).
 
-Everything else in this file is BreedMate-specific reference, not a requirement.
+Everything else in this file is source-format reference, not a requirement.
 The table name `Pedigree` and these column names are currently fixed in code; a
 future mapping layer (roadmap §9) would let differently-named schemas connect.
 
@@ -67,10 +67,84 @@ Published Date, Imported, Cause of Death, User Email.)
 
 ---
 
-## Genetics columns (COI / AVK) — name varies by BreedMate export (CONFIRMED 2026-06-25)
+## The agreed 74-column layout (CONFIRMED 2026-08-02, owner import)
+
+The owner's import pipeline now writes **all source files and the master database in
+one fixed 74-column order** (`source-column-mapping.html`). Column *N* of every
+file maps to DB field *N*, 1:1. The app mirrors that layout in
+**`src/lib/sourceFields.ts`** (`SOURCE_FIELDS`) — the single source of truth
+from which `queries.ts` builds the SQL projection, `schema.ts` fills
+`Animal.fields`, and the Pedigree tab renders its sections. **Adding a column to the
+source database = adding one catalogue entry.** Absent columns still degrade to NULL,
+so older exports keep opening.
+
+| # | Column | # | Column | # | Column |
+|---|---|---|---|---|---|
+| 1 | Name | 26 | Height | 51 | Photo #3 |
+| 2 | Sex | 27 | **Register** | 52 | Photo #4 |
+| 3 | DOB | 28 | Certifications | 53 | Died Date |
+| 4 | Sire | 29 | Comment | 54 | Cause of Death |
+| 5 | Dam | 30 | Photo | 55 | Hyperlink |
+| 6 | Registration | 31 | Eye Colour | 56 | Tattoo |
+| 7 | PreTitle | 32 | Blood Type | 57 | Modified |
+| 8 | PostTitle | 33–41 | User Field1..9 | 58 | Created |
+| 9 | Color | 42 | Points | 59 | Mark1 |
+| 10 | Gd | 43 | OFA | 60 | Mark2 |
+| 11 | Owner | 44 | CERF | 61 | _Marks |
+| 12 | Breeder | 45 | Additional Reg No. | 62 | MH |
+| 13 | Hip Score | 46 | COI | 63 | LTE |
+| 14 | **Elbow Score** | 47 | AVK | 64 | PATELLA |
+| 15 | Litter No. | 48 | Variety | 65 | ECVO |
+| 16 | Studbook No. *(now empty)* | 49 | HTML Photo | 66 | WD-ATP7B |
+| 17 | Published Date | 50 | Photo #2 | 67 | SAMS-KCNJ10 |
+| 18 | Imported | | | 68 | PRA-rcd4-C2orf71 |
+| 19 | Microchip | | | 69 | MDR2-ABCB1 |
+| 20 | Surveyor | | | 70 | F7 |
+| 21 | Call Name | | | 71 | CUR/N |
+| 22 | Country of Origin | | | 72 | DMD-CFAX |
+| 23 | Breed | | | 73 | H |
+| 24 | Genotype | | | 74 | DNA-COI |
+| 25 | Notes | | | | |
+
+### Mapping corrections this layout forced
+
+- **Registry codes (JKC, FIN, SKK, ANKC…) live in `Register` (#27), not
+  `Studbook No.` (#16).** The import moved them; #16 is now empty. Read #27.
+- **`Elbow Score` (#14) was never projected** — it is now, next to `Hip Score` (#13).
+- **`Additional Reg No.` (#45), `Microchip` (#19), `Owner` (#11), `Litter No.` (#15)
+  and `Published Date` (#17) hold real data** in the master DB and were previously
+  invisible to the app; they now reach the "All fields" panel.
+- **`COI` (#46) / `AVK` (#47) are EMPTY in the current master DB.** The Pedigree tab
+  displays *stored* coefficients verbatim (PRD §7.3), so it shows nothing for them
+  until the values are written; Linebreeding/Foundation recompute in-app regardless.
+- **`Photo` (#30) is empty in the current master DB**, so the card shows blank space,
+  not a placeholder (a placeholder means "path present but unreadable").
+
+### DNA / genetic test columns #62–#74
+
+Owner decision **2026-08-05**: the whole #62–#74 block belongs to the Pedigree tab's
+**genetics section**. Values are free TEXT lab results, shown **verbatim** — never
+parsed, never treated as coefficients. Two consequences worth stating:
+
+- `DNA-COI` (#74) is a **genomic** inbreeding figure from a lab report. It is **not**
+  the pedigree `COI` (#46) and is labelled "DNA-COI (genomic)" so the two are never
+  read as the same number.
+- `PRA-rcd4-C2orf71` (#68) and `SAMS-KCNJ10` (#67) keep their existing dedicated role
+  in the Hypothetical Mating carrier check (`matingChecks.dnaStatus`); the other
+  eleven are display-only for now.
+- Column names contain slashes and hyphens (`CUR/N`, `WD-ATP7B`) — **always quoted**
+  in SQL, as this file's `sql_quoting` note requires.
+
+**Verification status:** the names above come from the owner's import mapping, not yet
+from a `PRAGMA table_info` of the master `.db`. Everything degrades to NULL if a name
+differs, so a mismatch is silent, not fatal — but the PRAGMA check is still owed.
+
+---
+
+## Genetics columns (COI / AVK) — name varies by export (CONFIRMED 2026-06-25)
 
 The two genetics fields are stored under **different column names** depending on
-the BreedMate export:
+the export:
 
 | Field | Sample `DogSampleData.db` (632 rows) | Real `data/japanesespitz-2026.db` (37,601 rows) |
 |---|---|---|
@@ -122,7 +196,7 @@ Lookup/system tables (leading underscore): `_Sex`, `_Color`, `_Country`, `_Club`
 
 ## Pedigree-node display fields (from DogForms60.fmx "Family Tree" layout)
 
-The BreedMate Family Tree template composes a node label from these tokens
+The source Family Tree template composes a node label from these tokens
 (inspected 2026-06-14); mapping to the columns above:
 
 | Template token | Column | Notes |

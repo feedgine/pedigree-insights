@@ -6,11 +6,11 @@ PedigreeInsights is **read-only**. The source database remains the source of tru
 
 ## Features
 
-- Point the app at any pedigree SQLite database (e.g. a BreedMate `.db`) via a native file picker; the path is remembered.
+- Point the app at any pedigree SQLite database (a BreedMate `.db` works as-is) via a native file picker; the path is remembered.
 - Look up a dog by name (or registration number).
 - Five tabs (four reports + a litter planner):
   - **Pedigree** — bracket chart showing Titles · Name · DOB · Reg.
-  - **Indented Tree** — a BreedMate-style **indented text pedigree** (the "Family Tree" layout): the subject at the left margin, sire block above and dam block below, indenting one level per generation with `|` connectors. Each node is labelled with its generation (G0 = subject, G1, G2 …), Name, Registration and DOB; the header summarises Sex, DOB, COI and AVK. Line-bred ancestors are expanded once and later occurrences flagged `[repeat]`; unknown ancestors show as bare slots. **5 / 10 / 20 generations** (selector). Exportable to **.txt** (see Export) — what you see on screen is byte-identical to the saved file.
+  - **Indented Tree** — a classic **indented text pedigree** (the "Family Tree" layout): the subject at the left margin, sire block above and dam block below, indenting one level per generation with `|` connectors. Each node is labelled with its generation (G0 = subject, G1, G2 …), Name, Registration and DOB; the header summarises Sex, DOB, COI and AVK. Line-bred ancestors are expanded once and later occurrences flagged `[repeat]`; unknown ancestors show as bare slots. **5 / 10 / 20 generations** (selector). Exportable to **.txt** (see Export) — what you see on screen is byte-identical to the saved file.
   - **Linebreeding** — ancestors appearing more than once across the sire and dam sides, with the generation/line of every cross; 4–20 generations. Columns mirror PedigreeOnline: Crosses, Lines (sire/dam split), **Blood %** (Wright's ½^generation contribution), **Influence** (the equivalent cross pair), **AGR** (additive genetic relationship to the subject) and **COI** (each ancestor's own inbreeding). Rows are ranked by Blood % to surface the **top influencers**.
   - **Foundation** — import a list of foundation dogs; for any chosen dog, see each foundation's presence and genetic contribution across all generations.
   - **Hypothetical Mating** — plan a litter: pick an existing sire and dam and preview the projected pedigree of their potential offspring, with litter COI/AVK, colour-coded common ancestors, an 8-method line-breeding classification, and **warn-only** checks (sex mismatch; breeding-age windows; and recessive DNA-test carrier risk when the database has health-marker columns). Nothing is written to the database.
@@ -18,7 +18,7 @@ PedigreeInsights is **read-only**. The source database remains the source of tru
 - **Export** any report with **Save…**: a single-page **PDF** (A4, or A3 landscape for a deep chart); for the bracket chart, a full-resolution **PNG** of the whole tree with no page limit; for the Indented Tree, a plain-text **.txt** file.
 - Robust on imperfect data: traversal is iterative/cycle-guarded and never hangs; pedigree **cycles** (a dog within its own ancestry) are detected, broken for the math, and **surfaced as a warning** listing the offending dogs so the data can be corrected.
 - The running **version** is shown in the app header (e.g. `v1.5.0`), read from `package.json` at build time; during development a git build marker (`git describe`) appears alongside it so a dev build is never mistaken for a release.
-- Read-only: BreedMate stays the source of truth; the `.db` is never modified.
+- Read-only: your pedigree database stays the source of truth; the `.db` is never modified.
 
 ## Database requirements
 
@@ -33,7 +33,7 @@ Any **SQLite** database works, provided it contains a pedigree table in this sha
 **Optional** — used when present, shown as "—" otherwise; never required:
 
 - `Sex`, `DOB`, `Registration`, `PreTitle`, `PostTitle`, `Color`, `Breed`. (`Registration` is also used by search-by-registration.)
-- `COI` / `AVK` — stored genetics values (BreedMate's long names `Inbreeding Coefficient` / `Relationship Coefficient` are also accepted). How these are used depends on the report — see [Genetics](#genetics).
+- `COI` / `AVK` — stored genetics values (the long names `Inbreeding Coefficient` / `Relationship Coefficient` are also accepted). How these are used depends on the report — see [Genetics](#genetics).
 - `PRA-rcd4-C2orf71` / `SAMS-KCNJ10` — optional recessive DNA-test results (text). When present, the Hypothetical Mating tool shows the sire's/dam's values on the projected chart and warns on carrier×carrier (or affected) risk; absent → ignored.
 
 If a database lacks the mandatory columns, the app reports a clear error rather than a cryptic SQLite failure.
@@ -92,23 +92,23 @@ npm run test:unit      # pure traversal/normalization logic
 npm run test:integration   # queries against a fixture .db (read-only enforced)
 ```
 
-Integration tests run against `tests/fixtures/DogSampleData.db`. Place a BreedMate sample database there (the repo's `.gitignore` permits `tests/fixtures/*.db`).
+Integration tests run against `tests/fixtures/DogSampleData.db`. Place a compatible sample database there (the repo's `.gitignore` permits `tests/fixtures/*.db`).
 
 ## How it works
 
 - `src/lib/schema.ts` — typed `Animal` model + dirty-data normalizers (sex, name keys), mapped to the confirmed `Pedigree` columns.
-- `src/lib/queries.ts` — every SQL string, with quoted column names matching the BreedMate schema.
+- `src/lib/queries.ts` — every SQL string, with quoted column names matching the source schema.
 - `src/lib/pedigreeAlgorithm.ts` — pure, depth-limited, cycle-guarded ancestor traversal (the correctness-critical module).
 - `src/lib/linebreeding.ts` · `src/lib/contribution.ts` — repeated-ancestor/cross analysis (incl. Blood % and Influence) and the memoized Foundation contribution engine.
 - `src/lib/genetics.ts` — in-app relationship-matrix genetics: COI (Meuwissen-Luo), AGR (Colleau indirect), AVK (BigInt ancestor-loss), with cycle detection. Iterative and validated; runs as a pre-report step.
 - `src/lib/tableLayout.ts` — bracket-grid cell placement (rowSpan/col) for the chart table; `lineColors.ts` tints repeated ancestors.
-- `src/lib/indentedTree.ts` — renders a traversal node as the BreedMate-style indented ASCII text pedigree + summary header; the single source of truth for both the on-screen Indented Tree report and the `.txt` export (they can never drift).
+- `src/lib/indentedTree.ts` — renders a traversal node as the classic indented ASCII text pedigree + summary header; the single source of truth for both the on-screen Indented Tree report and the `.txt` export (they can never drift).
 - `src/lib/chartExport.ts` — export orchestration: the one-page PDF plan and the PNG capture (with a canvas-safe pixel ratio).
 - `electron/main/` — the only place the database is opened (read-only): IPC handlers (runtime-validated via `validate.ts`, timed for profiling), the PDF/PNG/TXT file writers (`export.ts`), the custom application menu (`menu.ts`), file picker, and config persistence.
 - `electron/preload/` — narrow, typed `window.api` bridge (contextIsolation on).
 - `src/App.tsx` is a **thin shell** (connection status, selected animal, active tab, toolbar depth selectors, export). Each report tab is a **self-contained view component** — `PedigreeView` · `IndentedTreeView` · `LinebreedingView` · `FoundationView` — that fetches its own data through the `src/hooks/useResource.ts` hook (loading/error + cancelled-guard) and reports readiness up. Adding a report is roughly one new `*View.tsx`, one `TABS` entry, and one render line; the hook lives in `src/hooks/` so `src/lib/` stays pure and main-process-safe.
 
-`Sire`/`Dam` in BreedMate are **Name text strings**, not integer foreign keys, so traversal is a self-join on `Name`. See `docs/` for the confirmed schema map, stack decisions, and algorithm notes.
+`Sire`/`Dam` are **Name text strings**, not integer foreign keys, so traversal is a self-join on `Name`. See `docs/` for the confirmed schema map, stack decisions, and algorithm notes.
 
 ## Roadmap
 

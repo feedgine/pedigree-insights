@@ -2,6 +2,9 @@
 import { describe, it, expect } from 'vitest';
 import {
   planOnePagePdf,
+  planContentPagePdf,
+  PDF_MARGIN_IN,
+  PDF_MAX_SIDE_IN,
   safePixelRatio,
   A4_LANDSCAPE_W,
   A4_LANDSCAPE_H,
@@ -36,6 +39,69 @@ describe('planOnePagePdf', () => {
   it('never enlarges and handles a zero/empty measurement', () => {
     const plan = planOnePagePdf(0, 0);
     expect(plan.scale).toBeLessThanOrEqual(1);
+  });
+});
+
+// The bracket chart's PDF page is cut to the chart, so the sheet has no wasted
+// width (the PNG export always had this; the PDF was shrink-to-A3). These are the
+// invariants that keep it one tight, readable page.
+// @author Yuliya Malinina <julia.malinina@gmail.com> — 2026-08-05
+describe('planContentPagePdf', () => {
+  it('sizes the page to the chart plus the printer margins, at full scale', () => {
+    // 960 x 2400 CSS px = 10 x 25 inches at 96 dpi.
+    const plan = planContentPagePdf(960, 2400);
+    expect(plan.scale).toBe(1);
+    expect(plan.pageSize.width).toBeCloseTo(10 + 2 * PDF_MARGIN_IN, 3);
+    expect(plan.pageSize.height).toBeCloseTo(25 + 2 * PDF_MARGIN_IN, 3);
+  });
+
+  // REGRESSION (2026-08-05): the page was emitted in microns, which electron's
+  // printToPDF (>= 21) reads as INCHES — a ~317500 x 690000in sheet that Acrobat
+  // refuses ("dimensions of this page are out-of-range"). A realistic chart must
+  // land in ordinary paper territory, so a unit slip fails here loudly.
+  it('emits INCHES, not microns — a real chart is a paper-sized sheet', () => {
+    const plan = planContentPagePdf(1180, 2600); // the reported 10-gen chart
+    expect(plan.pageSize.width).toBeGreaterThan(5);
+    expect(plan.pageSize.width).toBeLessThan(20);
+    expect(plan.pageSize.height).toBeGreaterThan(20);
+    expect(plan.pageSize.height).toBeLessThan(40);
+  });
+
+  it('never shrinks a normal chart — readability is the point', () => {
+    expect(planContentPagePdf(1680, 6000).scale).toBe(1);
+  });
+
+  it('keeps the chart aspect ratio (no distortion)', () => {
+    const plan = planContentPagePdf(1200, 3600);
+    const contentW = plan.pageSize.width - 2 * PDF_MARGIN_IN;
+    const contentH = plan.pageSize.height - 2 * PDF_MARGIN_IN;
+    expect(contentH / contentW).toBeCloseTo(3, 3);
+  });
+
+  it('scales down only when the content exceeds the 200-inch PDF side limit', () => {
+    // A 12-generation bracket: 4096 leaf rows x 40px = 163840px ≈ 1706 inches tall.
+    const plan = planContentPagePdf(2000, 163840);
+    expect(plan.scale).toBeLessThan(1);
+    expect(plan.pageSize.height).toBeLessThanOrEqual(PDF_MAX_SIDE_IN);
+    expect(plan.pageSize.width).toBeLessThanOrEqual(PDF_MAX_SIDE_IN);
+  });
+
+  it('stays within PDF limits for any plausible chart size', () => {
+    for (const [w, h] of [[0, 0], [1, 1], [800, 600], [5000, 50000], [99999, 99999]]) {
+      const plan = planContentPagePdf(w, h);
+      expect(plan.pageSize.width).toBeGreaterThan(0);
+      expect(plan.pageSize.height).toBeGreaterThan(0);
+      expect(plan.pageSize.width).toBeLessThanOrEqual(PDF_MAX_SIDE_IN);
+      expect(plan.pageSize.height).toBeLessThanOrEqual(PDF_MAX_SIDE_IN);
+      expect(plan.scale).toBeGreaterThan(0);
+      expect(plan.scale).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it('survives a zero measurement instead of emitting a zero-size page', () => {
+    const plan = planContentPagePdf(0, 0);
+    expect(plan.pageSize.width).toBeGreaterThan(0);
+    expect(plan.pageSize.height).toBeGreaterThan(0);
   });
 });
 

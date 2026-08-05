@@ -79,9 +79,11 @@ pedigree-insights/
 │   └── lib/                          ← pure, DB-agnostic logic (also runs in unit tests)
 │       ├── schema.ts                 ← Animal interface + normalizers (sex, keys, nodeLabel)
 │       ├── queries.ts                ← every SQL string + schema-adaptive projection
+│       ├── sourceFields.ts           ← the agreed 74-column source layout (catalogue)
+│       │                                — drives the projection, Animal.fields and the card
 │       ├── ipc.ts                    ← shared IPC channel names + window.api types
 │       ├── pedigreeAlgorithm.ts      ← ancestor tree (default de-dup + chart expand-all), caps
-│       ├── indentedTree.ts           ← builds the BreedMate-style indented TEXT pedigree (screen + .txt)
+│       ├── indentedTree.ts           ← builds the classic indented TEXT pedigree (screen + .txt)
 │       ├── linebreeding.ts           ← repeated-ancestor / crosses analysis
 │       ├── contribution.ts           ← memoized contribution DP + Foundation report + list parser
 │       ├── lineColors.ts             ← line-family colour assignment for repeated ancestors
@@ -103,6 +105,10 @@ pedigree-insights/
 
 ## Key conventions
 
+- **The projected column list lives in `src/lib/sourceFields.ts`**, not in the SQL.
+  It mirrors the owner's agreed 74-column layout 1:1 (schema-map.md); `queries.ts`
+  derives `PROJECTION` from it, `schema.ts` fills `Animal.fields` from it, and the
+  Pedigree tab groups its sections by it. Add a source column in ONE place.
 - **All SQL lives in `src/lib/queries.ts`.** Column names must match
   `docs/schema-map.md`; the genetics columns are selected via
   `buildSelectCols` (adapts to `Inbreeding Coefficient`/`Relationship Coefficient`

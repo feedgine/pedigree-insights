@@ -1,4 +1,4 @@
-// Integration tests — real SQLite, BreedMate-shaped schema (PRD §12.2).
+// Integration tests — real SQLite, contract-shaped schema (PRD §12.2).
 // Runs against tests/fixtures/DogSampleData.db via better-sqlite3 + the actual
 // PedigreeDatabase class and queries.ts strings. The fixture is a SYNTHETIC,
 // themed pedigree (fairy-tale + exotic-animal names) carrying no real or personal
@@ -11,6 +11,7 @@ import { resolve, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { PedigreeDatabase } from '../../electron/main/database';
 import { groupByGeneration, buildPedigreeTree } from '@/lib/pedigreeAlgorithm';
+import { SOURCE_FIELDS, DNA_TEST_FIELDS, presentFields } from '@/lib/sourceFields';
 
 const FIXTURE = resolve(__dirname, '../fixtures/DogSampleData.db');
 
@@ -87,7 +88,7 @@ describe('PedigreeDatabase queries against the real schema', () => {
     }
   );
 
-  it('per-generation counts at depth 3 match BreedMate-style layout', () => {
+  it('per-generation counts at depth 3 match the classic bracket layout', () => {
     const tree = buildPedigreeTree(db.lookup, SUBJECT, 3);
     const byGen = groupByGeneration(tree);
     const counts = Object.fromEntries(
@@ -151,12 +152,12 @@ describe('PedigreeDatabase queries against the real schema', () => {
   });
 });
 
-// Real BreedMate exports name the genetics columns "COI"/"AVK", while the
+// Real source exports name the genetics columns "COI"/"AVK", while the
 // bundled sample uses "Inbreeding Coefficient"/"Relationship Coefficient". This
 // disparity broke opening a real DB (no such column: "Inbreeding Coefficient").
 // These tests build tiny synthetic databases for each schema shape and open
 // them through the actual PedigreeDatabase, proving the projection adapts.
-describe('schema variation across BreedMate exports (regression: COI/AVK naming)', () => {
+describe('schema variation across source exports (regression: COI/AVK naming)', () => {
   const tmps: string[] = [];
 
   /** Create a throwaway .db with a Pedigree table whose columns are given as
@@ -226,6 +227,65 @@ describe('schema variation across BreedMate exports (regression: COI/AVK naming)
     expect(a).not.toBeNull();      // opens and queries fine — no crash
     expect(a!.coi).toBeNull();
     expect(a!.avk).toBeNull();
+    pdb.close();
+  });
+
+  // The owner's import writes every source file and the master DB in one agreed
+  // 74-column order (source-column-mapping.html, 2026-08-02). This test builds a
+  // database with EXACTLY those columns and proves the generated projection both
+  // executes (names with spaces, dots, slashes and hyphens are quoted correctly)
+  // and round-trips each value onto Animal.fields.
+  // @author Yuliya Malinina <julia.malinina@gmail.com> — 2026-08-05
+  it('projects the full 74-column layout, including the DNA test block', () => {
+    const defs = SOURCE_FIELDS.map(
+      (f) => `"${f.sources[0]}" ${f.numeric ? 'REAL' : 'TEXT'}`,
+    );
+    const file = makeDb(defs, [
+      {
+        Name: 'Layout Dog',
+        Sire: '',
+        Dam: '',
+        Sex: 'M',
+        Registration: 'JSF-0001',
+        Register: 'JKC',                    // #27 — registry code lives HERE
+        'Studbook No.': null,                // #16 — emptied by the import
+        'Hip Score': 'A/A',                 // #13
+        'Elbow Score': '0/0',               // #14
+        'Additional Reg No.': 'FIN-999',    // #45
+        'Inbreeding Coefficient': 0.0625,    // #46 (long spelling)
+        MH: 'Clear',                         // #62
+        PATELLA: '0/0',                      // #64
+        'WD-ATP7B': 'N/N',                  // #66
+        'SAMS-KCNJ10': 'Clear',             // #67
+        'PRA-rcd4-C2orf71': 'Carrier',      // #68
+        'CUR/N': 'N/N',                     // #71 — slash in the column name
+        H: 'neg',                            // #73
+        'DNA-COI': '8.1',                   // #74 — genomic, not the pedigree COI
+      },
+    ]);
+    const pdb = new PedigreeDatabase(file);
+    const a = pdb.getAnimal('Layout Dog')!;
+    expect(a).not.toBeNull();
+
+    // Named properties keep working…
+    expect(a.registration).toBe('JSF-0001');
+    expect(a.hipScore).toBe('A/A');
+    expect(a.coi).toBe(0.0625);
+    // …and the extended map carries the rest.
+    expect(a.fields!.register).toBe('JKC');
+    expect(a.fields!.elbowScore).toBe('0/0');
+    expect(a.fields!.additionalRegNo).toBe('FIN-999');
+    expect(a.fields!.studbookNo).toBeUndefined();   // empty column → absent
+    expect(a.fields!.curN).toBe('N/N');
+    expect(a.fields!.dnaCoi).toBe('8.1');
+    expect(a.fields!.praRcd4C2orf71).toBe('Carrier');
+
+    // Every DNA-block column that was filled shows up under the genetics group.
+    const dna = presentFields(a, DNA_TEST_FIELDS).map((d) => d.key);
+    expect(dna).toEqual(['mh', 'patella', 'wdAtp7b', 'samsKcnj10', 'praRcd4C2orf71', 'curN', 'h', 'dnaCoi']);
+
+    // The whole pipeline still runs on this schema.
+    expect(pdb.getPedigree('Layout Dog', 3).animal!.name).toBe('Layout Dog');
     pdb.close();
   });
 

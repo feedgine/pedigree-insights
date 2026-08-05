@@ -14,7 +14,7 @@ function animal(name: string, sex: Animal['sex'], dob: string | null): Animal {
 const ASOF = new Date('2026-07-26T00:00:00Z');
 
 describe('parseDob', () => {
-  it('parses ISO and BreedMate US dates, rejects junk', () => {
+  it('parses ISO and US-form dates, rejects junk', () => {
     expect(parseDob('2020-03-15')?.getUTCFullYear()).toBe(2020);
     expect(parseDob('2020-03-15T10:00:00')?.getUTCMonth()).toBe(2); // March = 2
     expect(parseDob('3/15/2020')?.getUTCFullYear()).toBe(2020);

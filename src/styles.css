@@ -326,6 +326,72 @@ body {
   padding: 5px 9px;
   line-height: 1.45;
 }
+/* The genetics block never drives the card (and therefore the exported page) width:
+   it is capped, and each result is a non-breaking chip in a wrapping row, so N results
+   flow onto as many lines as they need. */
+.ptcard__genetics { max-width: 560px; }
+/* Inline flow, NOT a flex row: with flex the label is a fixed first column and every
+   wrapped line hangs indented under it. Inline-block chips let each wrapped line start
+   flush at the block's left edge (owner request 2026-08-05), while `white-space: nowrap`
+   still keeps a single result from being split across the break. */
+.ptcard__gline { display: block; }
+.ptcard__gline + .ptcard__gline { margin-top: 4px; }
+.ptcard__glabel { margin-right: 6px; }
+.ptcard__gitems { display: inline; }
+/* Chips are separated by the trailing margin, NOT by a "·" character: a middot drawn
+   with ::before lands at the START of every wrapped line, which reads as a stray
+   bullet. The label/value weight contrast already separates them. */
+.ptcard__gitem { display: inline-block; white-space: nowrap; margin-right: 18px; }
+.ptcard__gval { font-weight: 600; }
+
+/* ---- "All database fields" panel (Pedigree tab) ----------------------------
+   Collapsed by default so the one-page PDF/PNG export is unaffected; expands to a
+   grouped, multi-column list of every non-empty column of the 74-column layout.
+   @author Yuliya Malinina <julia.malinina@gmail.com> */
+.ptfields {
+  border-top: 1px solid #e6e9ed;
+  padding-top: 6px;
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+.ptfields__summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-style: italic;
+  list-style: none;
+  user-select: none;
+}
+.ptfields__summary::-webkit-details-marker { display: none; }
+.ptfields__summary::before { content: "▸ "; font-style: normal; }
+.ptfields[open] .ptfields__summary::before { content: "▾ "; }
+.ptfields__body {
+  columns: 3 220px;
+  column-gap: 24px;
+  padding: 8px 2px 2px;
+  /* Definite cap: in the max-content layout used for export the panel would
+     otherwise stretch the page. */
+  max-width: 900px;
+}
+.ptfields__sec { break-inside: avoid; margin-bottom: 10px; }
+.ptfields__title {
+  margin: 0 0 3px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.ptfields__dl { margin: 0; }
+.ptfields__pair {
+  display: grid;
+  grid-template-columns: minmax(88px, 40%) 1fr;
+  gap: 0 8px;
+  padding: 1px 0;
+  break-inside: avoid;
+}
+.ptfields__dt { color: var(--muted); }
+.ptfields__dd { margin: 0; color: #16181b; overflow-wrap: anywhere; }
+
 .ptcard__foot { border-top: 1px solid #c4c9d0; padding-top: 6px; text-align: right; }
 .ptcard__gen { font-size: 11px; color: var(--muted); }
 
@@ -422,6 +488,18 @@ body {
 /* Print caption: hidden on screen, shown only when printing / saving to PDF. */
 .pttable__caption { display: none; }
 
+/* Export measurement: lay the chart out exactly as the PRINT rules will (shrink-wrapped
+   to its content, no scroll clipping, no screen padding) so the measured scrollWidth/
+   scrollHeight ARE the printed content box. Applied for two frames, then removed.
+   Must stay in sync with the `@media print` .pttable rule below.
+   @author Yuliya Malinina <julia.malinina@gmail.com> — 2026-08-05 */
+.pttable--measuring {
+  width: max-content !important;
+  height: auto !important;
+  overflow: visible !important;
+  padding: 0 !important;
+}
+
 /* PNG capture: briefly expand the scroll container to its full content size so
    html-to-image rasterizes the whole bracket, not just the on-screen viewport. */
 .pttable--capturing {
@@ -447,6 +525,11 @@ body {
     overflow: visible !important;
   }
   .pttable {
+    /* Shrink-wrap to the content so the PAGE is the chart, not the window: the
+       main process sizes the sheet to this same measured box (chartExport
+       planContentPagePdf), which is what makes the PDF as tight as the PNG.
+       Keep in sync with .pttable--measuring. */
+    width: max-content !important;
     height: auto !important;
     overflow: visible !important;
     padding: 0 !important;

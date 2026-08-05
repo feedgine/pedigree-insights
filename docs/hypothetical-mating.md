@@ -65,7 +65,7 @@ Cross notation reuses the Linebreeding report's form (e.g. `2S x 3S`).
 
 `checkMating(dam, sire, asOf)`: sex mismatch (dam should be F, sire M) and age
 windows (dam 1–8, sire 1–12 years, as of `asOf`). Missing Sex/DOB → "unknown" →
-no warning. DOB parsing accepts ISO and BreedMate `M/D/YYYY`.
+no warning. DOB parsing accepts ISO and the US `M/D/YYYY` form used by some exports.
 
 ## Export
 

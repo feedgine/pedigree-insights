@@ -4,7 +4,7 @@
 // useResource) and reports readiness up, so App carries no per-report loading or
 // data state.
 //
-// The four tabs are: Pedigree (bracket chart), Indented Tree (BreedMate-style
+// The four tabs are: Pedigree (bracket chart), Indented Tree (classic indented-text
 // text pedigree, exportable to .txt), Linebreeding, and Foundation.
 import React, { useCallback, useEffect, useState } from 'react';
 import type { DbStatus } from '@/lib/ipc';

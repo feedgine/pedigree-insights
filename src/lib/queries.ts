@@ -1,23 +1,31 @@
 // queries.ts — the single home for every SQL string (file-structure.md
 // convention: no inline SQL elsewhere). Column names are quoted because the
-// BreedMate schema uses spaces and dots (e.g. "Studbook No.") and must match
-// docs/schema-map.md [DOCUMENTED] exactly. Names are NOT assumed.
+// source schema uses spaces, dots and slashes (e.g. "Studbook No.", "CUR/N")
+// and must match docs/schema-map.md [DOCUMENTED] exactly. Names are NOT assumed.
 //
 // All access is READ-ONLY (stack-decision.md): no INSERT/UPDATE/DELETE exist
 // in this file by design.
 //
-// SCHEMA VARIATION (confirmed 2026-06-25): BreedMate exports differ in how they
+// SCHEMA VARIATION (confirmed 2026-06-25): source exports differ in how they
 // name the genetics columns. The bundled sample uses the long names
 // "Inbreeding Coefficient" / "Relationship Coefficient"; other exports (e.g. a
-// real Japanese Spitz database, 37,601 rows) use the short names "COI" / "AVK".
+// real Japanese Spitz database) use the short names "COI" / "AVK".
 // Selecting a column that does not exist makes SQLite reject the ENTIRE query,
 // so the projection is built at connect time from the columns that are actually
 // present (see buildSelectCols + database.ts). A field with no matching column
 // degrades to NULL — never an error. See schema-map.md "Genetics columns".
+//
+// EXTENDED LAYOUT (2026-08-05): the projected field list is no longer written out
+// here — it is derived from `SOURCE_FIELDS` in sourceFields.ts, the catalogue
+// of the owner's agreed 74-column layout. Adding a column to the source database
+// means adding one catalogue entry; this file does not change.
+// @author Yuliya Malinina <julia.malinina@gmail.com>
+
+import { SOURCE_FIELDS } from './sourceFields';
 
 /** Projection plan: each output alias and the source columns that may hold it,
  *  in preference order. Core identity/detail columns have exactly one source;
- *  the genetics columns list both known BreedMate spellings. */
+ *  the genetics columns list both known spellings. */
 interface ProjectionField {
   /** Output alias (matches AnimalRow in schema.ts). */
   as: string;
@@ -25,39 +33,11 @@ interface ProjectionField {
   sources: string[];
 }
 
-const PROJECTION: ProjectionField[] = [
-  { as: 'name', sources: ['Name'] },
-  { as: 'sire', sources: ['Sire'] },
-  { as: 'dam', sources: ['Dam'] },
-  { as: 'sexRaw', sources: ['Sex'] },
-  { as: 'dob', sources: ['DOB'] },
-  { as: 'registration', sources: ['Registration'] },
-  { as: 'preTitle', sources: ['PreTitle'] },
-  { as: 'postTitle', sources: ['PostTitle'] },
-  { as: 'color', sources: ['Color'] },
-  { as: 'breed', sources: ['Breed'] },
-  // Genetics columns vary by export; pick whichever exists, else NULL.
-  { as: 'coi', sources: ['Inbreeding Coefficient', 'COI'] },
-  { as: 'avk', sources: ['Relationship Coefficient', 'AVK'] },
-  // Optional DNA health-test columns (recessive). Used by the Hypothetical Mating
-  // carrier check + parent display; absent columns degrade to NULL (never error).
-  { as: 'praRcd4C2orf71', sources: ['PRA-rcd4-C2orf71'] },
-  { as: 'samsKcnj10', sources: ['SAMS-KCNJ10'] },
-  // Extended subject-card columns (Pedigree tab). All DOCUMENTED in schema-map.md;
-  // any absent column degrades to NULL (never an error).
-  // @author Yuliya Malinina <julia.malinina@gmail.com>
-  { as: 'callName', sources: ['Call Name'] },
-  { as: 'diedDate', sources: ['Died Date'] },
-  { as: 'breeder', sources: ['Breeder'] },
-  { as: 'country', sources: ['Country of Origin'] },
-  { as: 'photo', sources: ['Photo', 'HTML Photo', 'Photo #2', 'Photo #3', 'Photo #4'] },
-  { as: 'ofa', sources: ['OFA'] },
-  { as: 'cerf', sources: ['CERF'] },
-  { as: 'hipScore', sources: ['Hip Score'] },
-  { as: 'eyeColour', sources: ['Eye Colour'] },
-  { as: 'bloodType', sources: ['Blood Type'] },
-  { as: 'genotype', sources: ['Genotype'] },
-];
+/** Derived from the 74-column catalogue — one projected alias per layout column. */
+const PROJECTION: ProjectionField[] = SOURCE_FIELDS.map(({ as, sources }) => ({
+  as,
+  sources,
+}));
 
 /** Columns without which the app cannot build a pedigree at all. If any is
  *  missing the file is not a usable pedigree database (its `Pedigree` table lacks
@@ -69,7 +49,8 @@ export const REQUIRED_COLUMNS = ['Name', 'Sire', 'Dam'] as const;
  * Build the shared SELECT projection from the columns actually present in the
  * Pedigree table (as reported by PRAGMA table_info). Each field maps to the
  * first of its candidate source columns that exists; if none exist it is
- * selected as NULL, so optional fields (COI/AVK) never break the query.
+ * selected as NULL, so optional fields (COI/AVK, the DNA test block, …) never
+ * break the query.
  */
 export function buildSelectCols(available: ReadonlySet<string>): string {
   return PROJECTION.map(({ as, sources }) => {

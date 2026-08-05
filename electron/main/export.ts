@@ -22,12 +22,17 @@ export function registerExportIpc(getWin: () => BrowserWindow | null): void {
   // Render the current renderer view to a PDF. We drive printing from the main
   // process (printToPDF) rather than the renderer's window.print(), because on
   // macOS window.print() ignores the CSS @page orientation — a wide bracket
-  // chart then prints portrait and is clipped. printToPDF forces the page size +
-  // landscape deterministically. The renderer picks A4, or A3 when the chart is
-  // too wide for A4 (mirroring PedigreePub), and has already applied the
-  // fit-to-width zoom (--print-scale) before invoking. printToPDF emulates print
-  // media so the @media print rules (chrome stripped, caption shown) apply.
-  // Margins are ~8mm (0.315in), matching the renderer's fit-to-width math.
+  // chart then prints portrait and is clipped. printToPDF forces the page size
+  // deterministically.
+  //
+  // The renderer decides the sheet (chartExport.ts): text reports use standard
+  // A4/A3, while the bracket chart sends a CUSTOM size in microns cut to the
+  // chart's own measured box, so the PDF is as tight as the PNG rather than a
+  // shrunk-to-A3 chart floating in white space (owner request, 2026-08-05).
+  // printToPDF emulates print media so the @media print rules (chrome stripped,
+  // container shrink-wrapped, caption shown) apply. Margins are ~8mm (0.315in) —
+  // the renderer adds the same allowance when sizing a custom page, so keep the
+  // two in sync (chartExport PDF_MARGIN_IN).
   ipcMain.handle(
     IPC.printPdf,
     async (_e, opts: unknown): Promise<SaveResult> => {

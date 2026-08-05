@@ -1,4 +1,4 @@
-// IndentedTree.tsx — the pedigree rendered as a BreedMate-style indented text
+// IndentedTree.tsx — the pedigree rendered as a classic indented text
 // tree (the "Indented Tree" tab). The exact text shown here is produced by
 // buildPedigreeText (the single source of truth in src/lib/indentedTree.ts) and
 // is byte-identical to what the "TXT" export writes, so the on-screen report and
