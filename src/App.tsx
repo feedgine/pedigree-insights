@@ -4,8 +4,9 @@
 // useResource) and reports readiness up, so App carries no per-report loading or
 // data state.
 //
-// The four tabs are: Pedigree (bracket chart), Indented Tree (classic indented-text
-// text pedigree, exportable to .txt), Linebreeding, and Foundation.
+// The tabs are: Pedigree (bracket chart), Indented Tree (classic indented-text
+// text pedigree, exportable to .txt), Linebreeding, Foundation, Hypothetical
+// Mating, and DNA Tests (a whole-database genotype report, PDF + CSV).
 import React, { useCallback, useEffect, useState } from 'react';
 import type { DbStatus } from '@/lib/ipc';
 import {
@@ -18,6 +19,7 @@ import {
   HYPOTHETICAL_MATING_MAX_GENERATIONS,
 } from '@/lib/hypotheticalMating';
 import { exportChartPdf, exportChartPng } from '@/lib/chartExport';
+import { DNA_TESTS, DEFAULT_DNA_TEST, DNA_TEST_BY_ID } from '@/lib/dnaReport';
 import FirstRun from './components/FirstRun';
 import SaveMenu, { type SaveFormat } from './components/SaveMenu';
 import SearchPanel from './components/SearchPanel';
@@ -26,8 +28,9 @@ import IndentedTreeView from './components/IndentedTreeView';
 import LinebreedingView from './components/LinebreedingView';
 import FoundationView from './components/FoundationView';
 import HypotheticalMatingView from './components/HypotheticalMatingView';
+import DnaTestView from './components/DnaTestView';
 
-type View = 'pedigree' | 'tree' | 'linebreeding' | 'foundation' | 'mating';
+type View = 'pedigree' | 'tree' | 'linebreeding' | 'foundation' | 'mating' | 'dna';
 
 const TABS: { id: View; label: string }[] = [
   { id: 'pedigree', label: 'Pedigree' },
@@ -35,6 +38,7 @@ const TABS: { id: View; label: string }[] = [
   { id: 'linebreeding', label: 'Linebreeding' },
   { id: 'foundation', label: 'Foundation' },
   { id: 'mating', label: 'Hypothetical Mating' },
+  { id: 'dna', label: 'DNA Tests' },
 ];
 
 const CHART_MIN_GENERATIONS = 4;
@@ -69,6 +73,9 @@ export default function App(): React.ReactElement {
   const [matingGenerations, setMatingGenerations] = useState<number>(
     DEFAULT_HYPOTHETICAL_MATING_GENERATIONS,
   );
+  // Which genetic test the DNA Tests tab reports on. Session-local: the report is
+  // cheap to rebuild, and a breeder usually looks at several tests in one sitting.
+  const [dnaTest, setDnaTest] = useState<string>(DEFAULT_DNA_TEST);
 
   // Whether the active view currently has exportable content (each view reports
   // this up); drives the Save button's enabled state.
@@ -80,6 +87,10 @@ export default function App(): React.ReactElement {
   // export can write exactly what is on screen. Empty unless the tree tab is
   // active and built.
   const [treeText, setTreeText] = useState('');
+
+  // The DNA Tests view lifts its CSV text up here the same way, so the toolbar's
+  // CSV export writes exactly the rows that are on screen.
+  const [dnaCsv, setDnaCsv] = useState('');
 
   const isChart = view === 'pedigree';
   // The Pedigree and Hypothetical Mating tabs both render a bracket chart
@@ -100,15 +111,21 @@ export default function App(): React.ReactElement {
   useEffect(() => {
     setContentReady(false);
     setTreeText('');
+    setDnaCsv('');
   }, [view, subjectName]);
 
   const runExport = useCallback(
     async (
       fn: (opts: { defaultName: string }) => Promise<{ warning?: string } | unknown>
     ) => {
-      const defaultName = subjectName
-        ? `PedigreeInsights-${subjectName}`
-        : 'PedigreeInsights';
+      // The DNA report covers the whole database, so it is named after the test
+      // rather than after a subject dog (there isn't one).
+      const defaultName =
+        view === 'dna'
+          ? `PedigreeInsights-${DNA_TEST_BY_ID.get(dnaTest)?.marker ?? dnaTest}`
+          : subjectName
+            ? `PedigreeInsights-${subjectName}`
+            : 'PedigreeInsights';
       setExporting(true);
       setExportMsg(null);
       try {
@@ -124,7 +141,7 @@ export default function App(): React.ReactElement {
         setExporting(false);
       }
     },
-    [subjectName]
+    [subjectName, view, dnaTest]
   );
 
   const onPrint = useCallback(
@@ -150,6 +167,20 @@ export default function App(): React.ReactElement {
     }
   }, [treeText, subjectName, treeGenerations]);
 
+  const onSaveCsv = useCallback(async () => {
+    if (!dnaCsv) return;
+    const marker = DNA_TEST_BY_ID.get(dnaTest)?.marker ?? dnaTest;
+    setExporting(true);
+    setExportMsg(null);
+    try {
+      await window.api.saveCsv(`PedigreeInsights - ${marker}`, dnaCsv);
+    } catch (err) {
+      setExportMsg(err instanceof Error ? err.message : String(err));
+    } finally {
+      setExporting(false);
+    }
+  }, [dnaCsv, dnaTest]);
+
   // Output formats for the Save… menu. PDF for every view; PNG only for the
   // bracket chart; TXT only for the indented text tree.
   const saveFormats: SaveFormat[] = [
@@ -160,7 +191,9 @@ export default function App(): React.ReactElement {
         ? 'A4 / A3 · one page'
         : view === 'tree'
           ? 'A4 portrait · text'
-          : 'A4 portrait',
+          : view === 'dna'
+            ? 'A4 portrait · chart + table'
+            : 'A4 portrait',
       run: onPrint,
     },
     ...(isBracket
@@ -168,6 +201,9 @@ export default function App(): React.ReactElement {
       : []),
     ...(view === 'tree'
       ? [{ id: 'txt', label: 'TXT', hint: 'plain-text indented pedigree', run: onSaveTxt }]
+      : []),
+    ...(view === 'dna'
+      ? [{ id: 'csv', label: 'CSV', hint: 'spreadsheet · one row per dog', run: onSaveCsv }]
       : []),
   ];
 
@@ -258,6 +294,19 @@ export default function App(): React.ReactElement {
         {view === 'foundation' && (
           <span className="depth depth__range">All generations</span>
         )}
+        {view === 'dna' && (
+          <label className="depth">
+            Test:
+            <select value={dnaTest} onChange={(e) => setDnaTest(e.target.value)}>
+              {DNA_TESTS.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.label} ({t.marker})
+                </option>
+              ))}
+            </select>
+            <span className="depth__range">whole database</span>
+          </label>
+        )}
         {view === 'mating' && (
           <label className="depth">
             Generations:
@@ -279,7 +328,7 @@ export default function App(): React.ReactElement {
       </div>
 
       <main className="stage">
-        {!subjectName && view !== 'foundation' && view !== 'mating' && (
+        {!subjectName && view !== 'foundation' && view !== 'mating' && view !== 'dna' && (
           <div className="empty-stage">
             Look up a dog by name to view its{' '}
             {view === 'linebreeding' ? 'linebreeding report' : 'pedigree'}.
@@ -317,6 +366,15 @@ export default function App(): React.ReactElement {
 
         {view === 'mating' && (
           <HypotheticalMatingView generations={matingGenerations} onReady={setContentReady} />
+        )}
+
+        {view === 'dna' && (
+          <DnaTestView
+            testId={dnaTest}
+            dbName={dbStatus.fileName}
+            onReady={setContentReady}
+            onCsv={setDnaCsv}
+          />
         )}
       </main>
     </div>

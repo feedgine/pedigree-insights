@@ -21,6 +21,7 @@ const api: PedigreeApi = {
   getFoundation: (name) => ipcRenderer.invoke(IPC.getFoundation, name),
   getHypotheticalMating: (sireName, damName, generations) =>
     ipcRenderer.invoke(IPC.getHypotheticalMating, sireName, damName, generations),
+  getDnaTestReport: (testId) => ipcRenderer.invoke(IPC.getDnaTestReport, testId),
   importFoundation: () => ipcRenderer.invoke(IPC.importFoundation),
   clearFoundation: () => ipcRenderer.invoke(IPC.clearFoundation),
   getConfig: () => ipcRenderer.invoke(IPC.getConfig),
@@ -30,6 +31,8 @@ const api: PedigreeApi = {
   savePng: (options) => ipcRenderer.invoke(IPC.savePng, options),
   saveText: (defaultName, content) =>
     ipcRenderer.invoke(IPC.saveText, defaultName, content),
+  saveCsv: (defaultName, content) =>
+    ipcRenderer.invoke(IPC.saveCsv, defaultName, content),
 };
 
 contextBridge.exposeInMainWorld('api', api);

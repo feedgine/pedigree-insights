@@ -8,6 +8,7 @@ import type { PedigreeTreeNode } from './pedigreeAlgorithm';
 import type { LinebreedingReport } from './linebreeding';
 import type { FoundationReport } from './contribution';
 import type { HypotheticalMatingReport } from './hypotheticalMating';
+import type { DnaTestReport } from './dnaReport';
 
 export const IPC = {
   pickDatabase: 'db:pick',
@@ -20,6 +21,7 @@ export const IPC = {
   getLinebreeding: 'db:getLinebreeding',
   getFoundation: 'db:getFoundation',
   getHypotheticalMating: 'db:getHypotheticalMating',
+  getDnaTestReport: 'db:getDnaTestReport',
   importFoundation: 'foundation:import',
   clearFoundation: 'foundation:clear',
   getConfig: 'config:get',
@@ -27,6 +29,7 @@ export const IPC = {
   printPdf: 'print:pdf',
   savePng: 'png:save',
   saveText: 'file:saveText',
+  saveCsv: 'file:saveCsv',
 } as const;
 
 /** Options for rendering the current view to a PDF (main process). */
@@ -123,6 +126,10 @@ export interface PedigreeApi {
     damName: string,
     generations: number,
   ): Promise<HypotheticalMatingReport | null>;
+  /** DNA Tests report: every dog with a result for one genetic test, plus the
+   *  genotype tally the pie chart draws. `testId` must be one of the ids in
+   *  `DNA_TESTS` (dnaReport.ts). Null if no DB is open. */
+  getDnaTestReport(testId: string): Promise<DnaTestReport | null>;
   /** Open a file picker, parse a foundation-dog list, save it, and report how
    *  many names matched the database. */
   importFoundation(): Promise<FoundationImportResult>;
@@ -144,6 +151,10 @@ export interface PedigreeApi {
    *  `defaultName` seeds the dialog's filename (extension added by main).
    *  Used by the Indented Tree report's "TXT" export. */
   saveText(defaultName: string, content: string): Promise<SaveResult>;
+  /** Write `content` as a UTF-8 .csv file (BOM-prefixed by main, so Excel reads
+   *  the accented kennel names correctly) via a native "Save As" dialog. Used by
+   *  the DNA Tests report's "CSV" export. */
+  saveCsv(defaultName: string, content: string): Promise<SaveResult>;
 }
 
 declare global {

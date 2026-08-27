@@ -33,6 +33,7 @@ import {
 } from '../../src/lib/pedigreeAlgorithm';
 import { parseFoundationList } from '../../src/lib/contribution';
 import { clampMatingGenerations } from '../../src/lib/hypotheticalMating';
+import { isDnaTestId } from '../../src/lib/dnaReport';
 
 let win: BrowserWindow | null = null;
 let database: PedigreeDatabase | null = null;
@@ -235,6 +236,15 @@ function registerIpc(): void {
       );
     }
   );
+
+  // DNA Tests report. The test id is checked against the offered catalogue at the
+  // trust boundary, so only a known column can ever be queried.
+  ipcMain.handle(IPC.getDnaTestReport, (_e, testId: unknown) => {
+    if (!database) return null;
+    const id = reqNonEmptyString(testId, 'testId');
+    if (!isDnaTestId(id)) throw new Error(`Invalid testId: unknown DNA test "${id}"`);
+    return timed(`getDnaTestReport(${id})`, () => database!.getDnaTestReport(id));
+  });
 
   ipcMain.handle(IPC.importFoundation, async (): Promise<FoundationImportResult> => {
     const result = await dialog.showOpenDialog(win!, {

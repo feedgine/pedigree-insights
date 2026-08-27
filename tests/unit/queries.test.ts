@@ -5,6 +5,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   buildSelectCols,
+  listByFieldSql,
+  quoteIdent,
   missingRequiredColumns,
   getAnimalSql,
   getChildrenSql,
@@ -86,5 +88,30 @@ describe('SQL builders embed the projection and the right clauses', () => {
     expect(sql).toContain('"Name" LIKE ? COLLATE NOCASE OR "Registration" LIKE ?');
     expect(sql).toContain('ORDER BY "Name" COLLATE NOCASE');
     expect(sql).toContain('LIMIT ?');
+  });
+});
+
+// --- DNA Tests report query -------------------------------------------------
+// The column name is resolved from the SOURCE_FIELDS catalogue, never from
+// renderer input, but it still goes through quoteIdent so an awkward real name
+// like "CUR/N" (and any future one with punctuation) is valid SQL.
+describe('listByFieldSql — DNA Tests listing', () => {
+  const SELECT = '"Name" AS name,\n  "Sire" AS sire';
+
+  it('lists the whole table for one column and filters out blank results', () => {
+    const sql = listByFieldSql(SELECT, 'PRA-rcd4-C2orf71');
+    // The "Pedigree No." is the owner's record number from Registration (#6),
+    // already in the shared projection — never SQLite's rowid.
+    expect(sql).not.toContain('rowid');
+    expect(sql).toContain('FROM "Pedigree"');
+    expect(sql).toContain('"PRA-rcd4-C2orf71" IS NOT NULL');
+    expect(sql).toContain('TRIM(CAST("PRA-rcd4-C2orf71" AS TEXT)) <> \'\'');
+    expect(sql).toContain('ORDER BY "Name" COLLATE NOCASE');
+  });
+
+  it('quotes an identifier containing a slash or a quote', () => {
+    expect(quoteIdent('CUR/N')).toBe('"CUR/N"');
+    expect(quoteIdent('od"d')).toBe('"od""d"');
+    expect(listByFieldSql(SELECT, 'CUR/N')).toContain('"CUR/N" IS NOT NULL');
   });
 });

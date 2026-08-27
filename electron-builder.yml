@@ -9,7 +9,11 @@ files:
   - package.json
 # better-sqlite3 is a native module: rebuild for Electron's ABI and keep it
 # unpacked from the asar archive so the .node binary is loadable at runtime.
+# buildDependenciesFromSource forces an actual compile against Electron's ABI
+# instead of reusing node_modules/.../build or downloading a Node prebuild —
+# that reuse is what shipped a NODE_MODULE_VERSION 127 binary into v1.7.0.
 npmRebuild: true
+buildDependenciesFromSource: true
 asarUnpack:
   - "**/node_modules/better-sqlite3/**"
 mac:

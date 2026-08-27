@@ -12,9 +12,15 @@ import {
   buildSelectCols,
   getAnimalSql,
   getChildrenSql,
+  listByFieldSql,
   missingRequiredColumns,
   searchAnimalsSql,
 } from '../../src/lib/queries';
+import {
+  DnaTestReport,
+  buildDnaTestReport,
+  dnaTestSources,
+} from '../../src/lib/dnaReport';
 import {
   AnimalLookup,
   ChildrenLookup,
@@ -44,6 +50,11 @@ export class PedigreeDatabase {
   private stmtChildren: Database.Statement;
   private stmtSearch: Database.Statement;
   private stmtNames: Database.Statement;
+  /** The shared SELECT projection, kept so ad-hoc report queries (DNA Tests) can
+   *  reuse the same schema-adaptive column list instead of rebuilding it. */
+  private select: string;
+  /** Column names actually present in the opened Pedigree table. */
+  private available: ReadonlySet<string>;
 
   readonly path: string;
 
@@ -73,6 +84,8 @@ export class PedigreeDatabase {
       );
     }
     const select = buildSelectCols(available);
+    this.select = select;
+    this.available = available;
 
     this.stmtGet = this.db.prepare(getAnimalSql(select));
     this.stmtChildren = this.db.prepare(getChildrenSql(select));
@@ -160,6 +173,27 @@ export class PedigreeDatabase {
     generations: number,
   ): HypotheticalMatingReport {
     return buildHypotheticalMating(this.lookup, sireName, damName, generations, new Date());
+  }
+
+  /**
+   * DNA Tests report (owner request 2026-08-27): every dog that has a result for
+   * one genetic test, plus the genotype tally the pie chart draws.
+   *
+   * The source column is resolved from the `SOURCE_FIELDS` catalogue via
+   * `dnaTestSources(testId)` against the columns this database actually has, so
+   * a database exported before the DNA block existed returns an empty report with
+   * `columnPresent: false` rather than a SQLite error.
+   *
+   * The report's "Pedigree No." comes from `Registration` (#6) — the owner's own
+   * record number — which the shared projection already carries, so no extra
+   * column is selected here.
+   */
+  getDnaTestReport(testId: string): DnaTestReport {
+    const column = dnaTestSources(testId).find((c) => this.available.has(c));
+    if (!column) return buildDnaTestReport([], testId, false);
+
+    const rows = this.db.prepare(listByFieldSql(this.select, column)).all() as AnimalRow[];
+    return buildDnaTestReport(rows.map(toAnimal), testId, true);
   }
 
   /** Whether a Name exists in the database (used to validate a foundation list).

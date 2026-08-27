@@ -105,3 +105,34 @@ export const LIST_NAMES = `
 
 /** Read the actual column names of the Pedigree table. */
 export const PEDIGREE_TABLE_INFO = `PRAGMA table_info("Pedigree")`;
+
+/**
+ * Every dog that HAS a result in one column, for the DNA Tests report.
+ *
+ * `column` is a real source column name resolved from the `SOURCE_FIELDS`
+ * catalogue against `PRAGMA table_info` (see PedigreeDatabase.getDnaTestReport) —
+ * it is never renderer input, and `quoteIdent` escapes it anyway, so no user
+ * value ever reaches the SQL text. Blank strings are filtered out in SQL so the
+ * report never lists a dog with an empty genotype cell (owner decision
+ * 2026-08-27: tested dogs only).
+ *
+ * The report's "Pedigree No." is NOT SQLite's rowid — it is the owner's own record
+ * number, stored in `Registration` (#6) and already part of the shared projection,
+ * so this query needs nothing beyond it.
+ * @author Yuliya Malinina <julia.malinina@gmail.com> — 2026-08-27
+ */
+export function listByFieldSql(select: string, column: string): string {
+  const c = quoteIdent(column);
+  return `
+  SELECT ${select}
+  FROM "Pedigree"
+  WHERE ${c} IS NOT NULL AND TRIM(CAST(${c} AS TEXT)) <> ''
+  ORDER BY "Name" COLLATE NOCASE
+`;
+}
+
+/** Quote a source column name for SQL. Doubling any embedded quote keeps a
+ *  column such as `CUR/N` (or a future one with odd punctuation) safe. */
+export function quoteIdent(name: string): string {
+  return `"${name.replace(/"/g, '""')}"`;
+}

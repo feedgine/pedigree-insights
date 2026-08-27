@@ -837,3 +837,154 @@ thead .lb-cell--gen { font-style: italic; }
   }
   .hm-report__chart { border-bottom: none !important; }
 }
+
+/* ---- DNA Tests report ------------------------------------------------------
+   Genotype pie + the full listing of tested dogs, laid out like the breed club's
+   published report. Screen: one scrolling pane. Print: chrome stripped, the
+   caption shown, and the table header repeated on every page.
+   @author Yuliya Malinina <julia.malinina@gmail.com> — 2026-08-27 */
+.dna {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  background: #fff;
+  padding: 16px 20px 24px;
+}
+.dna__head {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid #c4c9d0;
+  padding-bottom: 8px;
+}
+.dna__title { margin: 0; font-size: 17px; font-weight: 700; color: #16181b; }
+.dna__meta { color: var(--muted); font-size: 13px; }
+.dna__note {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  max-width: 780px;
+  line-height: 1.5;
+}
+.dna__note--warn {
+  color: #7a5b00;
+  background: #fff8e1;
+  border: 1px solid #e0b000;
+  border-radius: 6px;
+  padding: 8px 12px;
+}
+
+/* Chart + legend sit side by side; the legend wraps under on a narrow window. */
+.dna-chart {
+  display: flex;
+  align-items: center;
+  gap: 40px;
+  flex-wrap: wrap;
+  margin: 16px 0 18px;
+  padding: 0;
+}
+.dna-chart__svg { flex: 0 0 auto; }
+.dna-chart__legend { margin: 0; }
+.dna-legend { list-style: none; margin: 0; padding: 0; font-size: 13px; }
+.dna-legend__row {
+  display: grid;
+  grid-template-columns: 14px minmax(150px, auto) auto;
+  align-items: center;
+  gap: 0 12px;
+  padding: 4px 0;
+}
+.dna-legend__dot { width: 11px; height: 11px; border-radius: 50%; }
+.dna-legend__label { color: #16181b; }
+.dna-legend__num { font-variant-numeric: tabular-nums; font-weight: 600; color: #16181b; }
+.dna-legend__pct { font-weight: 400; color: var(--muted); }
+
+.dna-table {
+  border-collapse: collapse;
+  width: max-content;
+  min-width: 100%;
+  font-size: 12.5px;
+}
+.dna-table thead th {
+  position: sticky;
+  top: 0;
+  background: #f3f4f6;
+  text-align: left;
+  font-weight: 700;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #414852;
+  border-bottom: 2px solid #c4c9d0;
+  z-index: 1;
+}
+.dna-cell {
+  border-bottom: 1px solid #e5e8ec;
+  padding: 4px 10px;
+  vertical-align: top;
+}
+.dna-cell--no {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  color: #5c636d;
+}
+.dna-cell--name { font-weight: 600; white-space: nowrap; }
+.dna-cell--geno { white-space: nowrap; }
+.dna-cell--parent { color: #3b424c; white-space: nowrap; }
+.dna-cell--dob { white-space: nowrap; color: #3b424c; font-variant-numeric: tabular-nums; }
+.dna-table tbody tr:hover { background: #f7f9fc; }
+/* A small dot carries the classification, so the value itself stays exactly as
+   the database wrote it — no recolouring of the text, no rewording. */
+.dna-geno__dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 7px;
+  vertical-align: middle;
+}
+.dna-geno--affected { font-weight: 600; }
+
+/* Print caption: hidden on screen, shown once at the top of the PDF. */
+.dna__caption { display: none; }
+
+@media print {
+  /* The DNA report prints as an ordinary A4 portrait document (App passes
+     landscape:false, so main sends a standard sheet at scale 1). The table simply
+     flows onto as many pages as it needs. */
+  .dna {
+    height: auto !important;
+    overflow: visible !important;
+    padding: 0 !important;
+  }
+  .dna__head { display: none !important; }
+  .dna__caption {
+    display: flex !important;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 12px;
+    font-weight: 700;
+    margin-bottom: 10px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid #16181b;
+  }
+  .dna__caption span:last-child { font-weight: 400; color: #5c636d; }
+
+  /* Keep the pie's fills — a printed chart of white wedges says nothing. */
+  .dna-chart, .dna-chart__svg, .dna-legend__dot, .dna-geno__dot, .dna-table thead th {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .dna-chart { break-inside: avoid; gap: 28px; }
+
+  .dna-table { font-size: 8.5px; width: 100%; }
+  /* Repeat the column headers at the top of every page of a long listing. */
+  .dna-table thead { display: table-header-group; }
+  .dna-table thead th { position: static; font-size: 8px; }
+  .dna-cell { padding: 2px 5px; break-inside: avoid; }
+  .dna-table tbody tr { break-inside: avoid; }
+  /* Long kennel names may wrap in print rather than widening the sheet. */
+  .dna-cell--name, .dna-cell--parent { white-space: normal; overflow-wrap: anywhere; }
+  .dna__note { display: none !important; }
+}

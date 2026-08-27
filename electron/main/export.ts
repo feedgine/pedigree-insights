@@ -103,4 +103,35 @@ export function registerExportIpc(getWin: () => BrowserWindow | null): void {
       return { canceled: false, filePath };
     }
   );
+
+  // Save the DNA Tests report as CSV. Same read-only posture as the .txt export —
+  // this writes a user-chosen file, never the database. The content is produced in
+  // the renderer (src/lib/dnaReport.ts dnaReportCsv) from the very rows on screen,
+  // so the file and the table can never disagree.
+  //
+  // The file is written with a UTF-8 BOM. Excel (both macOS and Windows) otherwise
+  // guesses the local 8-bit code page for a .csv and mangles the accented kennel
+  // names — LUMIVYÖRYN, ARČIAU ŠIRDIES, BALTA LAPĖ. Numbers, Google Sheets and
+  // every text editor skip the BOM silently, so it costs nothing elsewhere.
+  // @author Yuliya Malinina <julia.malinina@gmail.com> — 2026-08-27
+  ipcMain.handle(
+    IPC.saveCsv,
+    async (_e, defaultName: unknown, content: unknown): Promise<SaveResult> => {
+      const name = reqString(defaultName, 'defaultName');
+      const text = reqText(content, 'content');
+      const win = getWin();
+      if (!win) return { canceled: true };
+      const { canceled, filePath } = await dialog.showSaveDialog(win, {
+        title: 'Export report as CSV',
+        defaultPath: `${safeStem(name)}.csv`,
+        filters: [
+          { name: 'CSV (comma separated)', extensions: ['csv'] },
+          { name: 'All files', extensions: ['*'] },
+        ],
+      });
+      if (canceled || !filePath) return { canceled: true };
+      writeFileSync(filePath, `\uFEFF${text}`, 'utf-8');
+      return { canceled: false, filePath };
+    }
+  );
 }
