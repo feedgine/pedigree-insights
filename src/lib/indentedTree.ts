@@ -30,9 +30,9 @@ const PIPE = '|   ';
  * ISO datetime ('YYYY-MM-DD…') or an already-US date; strips any time part.
  * Returns '' for a null/blank/unparseable value rather than inventing a date.
  */
-export function formatDob(dob: string | null | undefined): string {
+export function formatDob(dob: string | number | null | undefined): string {
   if (!dob) return '';
-  const s = dob.trim();
+  const s = String(dob).trim(); // SQLite may hand back a number for a TEXT DOB
   if (!s) return '';
   const iso = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(s);
   if (iso) {

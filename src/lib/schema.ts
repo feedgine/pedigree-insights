@@ -127,19 +127,31 @@ export function keyOf(name: string | null | undefined): string | null {
   return k ? k : null;
 }
 
+/**
+ * Coerce a raw source cell to string|null. SQLite is dynamically typed, so a
+ * column that is logically TEXT (DOB, Registration, …) can still come back as a
+ * NUMBER for some rows. Everything downstream assumes string (e.g. `.trim()`), so
+ * we normalise once here — the single place every Animal is built — instead of
+ * guarding every call site. Fixes the Indented Tree crash on a numeric DOB
+ * (`dob.trim is not a function`) reached only at deeper generations.
+ * @author Yuliya Malinina <julia.malinina@gmail.com>
+ */
+const asText = (v: unknown): string | null =>
+  v == null ? null : typeof v === 'string' ? v : String(v);
+
 /** Build a typed Animal from a raw projected row. */
 export function toAnimal(row: AnimalRow): Animal {
   return {
-    name: row.name,
-    sire: row.sire,
-    dam: row.dam,
-    sex: normalizeSex(row.sexRaw),
-    dob: row.dob,
-    registration: row.registration,
-    preTitle: row.preTitle,
-    postTitle: row.postTitle,
-    color: row.color,
-    breed: row.breed,
+    name: asText(row.name) ?? '',
+    sire: asText(row.sire),
+    dam: asText(row.dam),
+    sex: normalizeSex(asText(row.sexRaw)),
+    dob: asText(row.dob),
+    registration: asText(row.registration),
+    preTitle: asText(row.preTitle),
+    postTitle: asText(row.postTitle),
+    color: asText(row.color),
+    breed: asText(row.breed),
     // Stored VERBATIM from the source DB — the model stays faithful to the file;
     // scale conversion happens only at the display edge. The two coefficients are
     // stored on DIFFERENT scales:
@@ -153,20 +165,20 @@ export function toAnimal(row: AnimalRow): Animal {
     coi: row.coi,
     avk: row.avk,
     // Optional DNA health-test results — text, passed through verbatim.
-    praRcd4C2orf71: row.praRcd4C2orf71,
-    samsKcnj10: row.samsKcnj10,
-    // Extended subject-card fields — text, passed through verbatim.
-    callName: row.callName,
-    diedDate: row.diedDate,
-    breeder: row.breeder,
-    country: row.country,
-    photo: row.photo,
-    ofa: row.ofa,
-    cerf: row.cerf,
-    hipScore: row.hipScore,
-    eyeColour: row.eyeColour,
-    bloodType: row.bloodType,
-    genotype: row.genotype,
+    praRcd4C2orf71: asText(row.praRcd4C2orf71),
+    samsKcnj10: asText(row.samsKcnj10),
+    // Extended subject-card fields — coerced to string (SQLite may return a number).
+    callName: asText(row.callName),
+    diedDate: asText(row.diedDate),
+    breeder: asText(row.breeder),
+    country: asText(row.country),
+    photo: asText(row.photo),
+    ofa: asText(row.ofa),
+    cerf: asText(row.cerf),
+    hipScore: asText(row.hipScore),
+    eyeColour: asText(row.eyeColour),
+    bloodType: asText(row.bloodType),
+    genotype: asText(row.genotype),
     // The full 74-column projection, verbatim (see Animal.fields).
     fields: projectFields(row),
   };
@@ -247,10 +259,11 @@ const MONTHS_ABBR = [
  * to avoid any timezone shift. Null/blank/unparseable → null.
  * @author Yuliya Malinina <julia.malinina@gmail.com>
  */
-export function formatDmy(value: string | null | undefined): string | null {
-  if (!value) return null;
-  const m = value.trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (!m) return value.trim() || null;
+export function formatDmy(value: string | number | null | undefined): string | null {
+  if (value == null || value === '') return null;
+  const s = String(value).trim();
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return s || null;
   const [, y, mo, d] = m;
   const mi = Number(mo) - 1;
   const mon = mi >= 0 && mi < 12 ? MONTHS_ABBR[mi] : mo;

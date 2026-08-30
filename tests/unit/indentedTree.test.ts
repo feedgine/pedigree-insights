@@ -51,6 +51,15 @@ describe('formatDob', () => {
     expect(formatDob('')).toBe('');
     expect(formatDob(undefined)).toBe('');
   });
+  it('does not crash when the DB returns a NUMBER for a TEXT DOB (regression)', () => {
+    // SQLite is dynamically typed — a DOB stored numerically arrives as a number.
+    // Must coerce, not call .trim() on a number. This was the Indented Tree crash
+    // ("dob.trim is not a function") that only surfaced at deeper generations,
+    // where an ancestor with a numeric DOB was finally reached.
+    expect(() => formatDob(20180402 as unknown as number)).not.toThrow();
+    expect(formatDob(20180402 as unknown as number)).toBe('20180402');
+    expect(formatDob(0 as unknown as number)).toBe('');
+  });
 });
 
 describe('nodeText', () => {
