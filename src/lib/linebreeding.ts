@@ -181,8 +181,10 @@ const INFLUENCE_BUCKETS: ReadonlyArray<{ value: number; label: string }> = (() =
 
 /** Map a blood-contribution FRACTION in [0,1] to the PedigreeOnline "Influence"
  *  label. Operates on the unrounded fraction so threshold rows (e.g. 7×7 at
- *  exactly 1/64) classify the same way PedigreeOnline's do. */
-function influenceLabel(bloodFraction: number): string {
+ *  exactly 1/64) classify the same way PedigreeOnline's do.
+ *  Exported (2026-09-11) so the web edition, which computes the same Blood %
+ *  by a layered walk, labels it with this exact function rather than a copy. */
+export function influenceLabel(bloodFraction: number): string {
   for (const b of INFLUENCE_BUCKETS) {
     if (b.value <= bloodFraction + 1e-12) return b.label;
   }
